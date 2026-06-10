@@ -16,7 +16,7 @@ Start from a Raspberry Pi with Raspberry Pi OS installed, network access working
 
 Choose one of these methods to place Matrix-Art on the Pi.
 
-### Option A: clone from GitHub on the Pi
+### Clone from GitHub on the Pi
 
 This is the recommended path when the Pi has internet access.
 
