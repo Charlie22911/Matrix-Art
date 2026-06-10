@@ -60,7 +60,7 @@ Starts or pauses automatic slideshow rotation.
 
 ### Shuffle
 
-When enabled, slideshow order is randomized.
+When enabled, Matrix-Art uses a shuffled bag instead of choosing a random item each time. It builds a list of all enabled library items, shuffles that full list, then plays through it one item at a time. Items do not repeat until the current shuffled bag is empty. When the bag is empty, Matrix-Art builds a new shuffled bag and avoids starting the new bag with the item that just played when more than one eligible item exists.
 
 ### Interval
 
