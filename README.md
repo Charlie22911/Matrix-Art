@@ -20,7 +20,7 @@ Other Raspberry Pi and HUB75 combinations may work, but the installer defaults a
 - Still image and animated GIF upload with fit, crop, scale, preview, and library save
 - Browser pixel-art editor with live matrix preview
 - SQLite-backed library with folders, Trash, recovery, permanent delete, and bulk actions
-- Slideshow playback with shuffle, interval, transitions, and transition smoothing
+- Slideshow playback with shuffled-bag rotation, interval control, transitions, and transition smoothing
 - Python Code effects with built-in examples and editable custom effects
 - Optional Settings PIN lock with config-file recovery
 - Settings-page database backup and restore, with the Settings PIN excluded from backups
