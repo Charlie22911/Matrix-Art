@@ -2,11 +2,6 @@
 
 The Library page is the main control page for Matrix-Art. It shows the current panel output, library contents, display controls, slideshow controls, transition settings, folder filters, and bulk actions.
 
-Route:
-
-```text
-/
-```
 
 ## Top navigation
 
@@ -25,7 +20,7 @@ The top-right Current card shows:
 - active display driver
 - priority/timing status text
 
-The Current preview updates when the displayed frame changes.
+The Current preview updates when the displayed frame changes, or about once every 4 seconds when animation frames are displayed.
 
 ## Status counters
 
