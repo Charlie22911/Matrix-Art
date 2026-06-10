@@ -33,9 +33,9 @@ You can also install on a high port, such as 8080:
 
 Mock mode uses port 8080.
 
-## Display flicker
+## Display issues
 
-Check:
+For issues with display flicker, check:
 
 ```bash
 ./scripts/check_matrix_timing.sh
@@ -53,11 +53,8 @@ hardware_pulse = true
 
 Make sure `snd_bcm2835` is not loaded. If you selected hardware PWM during install, Matrix-Art writes `/etc/modprobe.d/matrix-art-no-audio.conf` so the module stays unloaded after reboot.
 
-Heavy package installs can still cause temporary flicker. Run maintenance work away from the matrix core:
-
-```bash
-sudo nice -n 10 ionice -c3 taskset -c 0-2 apt install <package>
-```
+Driving RGB matrix panels can be complicated, Adafruit has a wonderful guide for the bonnet used in this project here:
+`https://learn.adafruit.com/adafruit-rgb-matrix-bonnet-for-raspberry-pi/overview`
 
 ## Settings PIN forgotten
 
