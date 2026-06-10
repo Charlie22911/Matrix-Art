@@ -14,11 +14,7 @@ This page covers installing Matrix-Art on Raspberry Pi OS and explains the main 
 
 Start from a Raspberry Pi with Raspberry Pi OS installed, network access working, and a terminal open on the Pi. SSH works fine.
 
-Choose one of these methods to place Matrix-Art on the Pi.
-
-### Clone from GitHub on the Pi
-
-This is the recommended path when the Pi has internet access.
+Clone Matrix-Art from GitHub on the Pi:
 
 ```bash
 sudo apt update

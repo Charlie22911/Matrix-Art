@@ -17,7 +17,7 @@ Other Raspberry Pi and HUB75 combinations may work, but the installer defaults a
 ## Features
 
 - Browser UI for controlling the panel from a phone, tablet, or computer
-- Still image and animated GIF upload with crop, scale, preview, and library save
+- Still image and animated GIF upload with fit, crop, scale, preview, and library save
 - Browser pixel-art editor with live matrix preview
 - SQLite-backed library with folders, Trash, recovery, permanent delete, and bulk actions
 - Slideshow playback with shuffle, interval, transitions, and transition smoothing

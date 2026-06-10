@@ -5,7 +5,7 @@ This wiki documents the Matrix-Art web interface, appliance behavior, installati
 ## Web UI pages
 
 - [Library](library.md): browse, show, organize, enable, disable, move, trash, recover, destroy, and run slideshow content.
-- [Upload](upload.md): upload still images and animated GIFs, crop/scale them, preview the exact 64×64 result, and save to the library.
+- [Upload](upload.md): upload still images and animated GIFs, scale or stretch them, preview the exact 64×64 result, and save to the library.
 - [Draw](draw.md): draw pixel art directly in a browser with live panel preview.
 - [Code](code.md): write and run Python-generated visual effects.
 - [Code Help](code-help.md): reference for the Code effect API.

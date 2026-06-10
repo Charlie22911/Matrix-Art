@@ -89,6 +89,43 @@ def process_image(
     return canvas.convert("RGB")
 
 
+
+def process_scaled_image(
+    img: Image.Image,
+    transform_scale: float,
+    offset_x: float,
+    offset_y: float,
+    target_size: tuple[int, int] = (64, 64),
+    resample: str = "nearest",
+    background_color: str = "#000000",
+) -> Image.Image:
+    """Scale and position a source image onto the panel canvas.
+
+    ``transform_scale`` is measured in destination pixels per source pixel.
+    ``offset_x`` and ``offset_y`` are the destination top-left position in the
+    target canvas. This matches the browser upload editor so still images and
+    GIF frames can share the same Scale mode behavior.
+    """
+    target_w, target_h = target_size
+    bg = parse_color(background_color)
+    if img.mode not in {"RGB", "RGBA"}:
+        src = img.convert("RGBA")
+    else:
+        src = img.copy()
+
+    src_w, src_h = src.size
+    if src_w <= 0 or src_h <= 0:
+        return Image.new("RGB", target_size, bg)
+
+    scale = max(0.0001, float(transform_scale or 0.0001))
+    new_w = max(1, int(round(src_w * scale)))
+    new_h = max(1, int(round(src_h * scale)))
+    resized = src.resize((new_w, new_h), resample_filter(resample)).convert("RGBA")
+
+    canvas = Image.new("RGBA", (target_w, target_h), bg + (255,))
+    canvas.paste(resized, (int(round(offset_x)), int(round(offset_y))), resized)
+    return canvas.convert("RGB")
+
 def process_cropped_image(
     img: Image.Image,
     crop_x: float,
@@ -137,6 +174,9 @@ def process_gif_bytes(
     crop_x: float | None = None,
     crop_y: float | None = None,
     crop_size: float | None = None,
+    transform_scale: float | None = None,
+    offset_x: float | None = None,
+    offset_y: float | None = None,
     max_frames: int = 240,
     default_duration_ms: int = 100,
     min_duration_ms: int = 20,
@@ -159,7 +199,17 @@ def process_gif_bytes(
             duration = int(frame.info.get("duration") or img.info.get("duration") or default_duration_ms)
             duration = max(int(min_duration_ms), min(int(max_duration_ms), duration))
             rgba = frame.convert("RGBA")
-            if mode == "crop" and crop_size is not None:
+            if mode == "scale" and transform_scale is not None:
+                processed = process_scaled_image(
+                    rgba,
+                    transform_scale=transform_scale,
+                    offset_x=offset_x or 0,
+                    offset_y=offset_y or 0,
+                    target_size=target_size,
+                    resample=resample,
+                    background_color=background_color,
+                )
+            elif mode == "crop" and crop_size is not None:
                 processed = process_cropped_image(
                     rgba,
                     crop_x or 0,

@@ -367,8 +367,8 @@ def _safe_hex_color(value: str | None, default: str = "#000000") -> str:
 
 def _gif_upload_options(services: MatrixArtServices) -> dict[str, object]:
     scale_mode = (request.form.get("scale_mode") or services.config.image.scale_mode).strip().lower()
-    if scale_mode not in {"crop", "fit", "fill", "stretch"}:
-        scale_mode = "fit"
+    if scale_mode not in {"scale", "crop", "fit", "fill", "stretch"}:
+        scale_mode = "scale"
 
     resample = (request.form.get("resample") or services.config.image.resample).strip().lower()
     if resample not in {"nearest", "pixel", "smooth", "bicubic", "bilinear", "lanczos"}:
@@ -378,6 +378,9 @@ def _gif_upload_options(services: MatrixArtServices) -> dict[str, object]:
     crop_x = _float_form("crop_x", 0.0)
     crop_y = _float_form("crop_y", 0.0)
     crop_size = _float_form("crop_size", 0.0)
+    transform_scale = _float_form("transform_scale", 0.0)
+    offset_x = _float_form("offset_x", 0.0)
+    offset_y = _float_form("offset_y", 0.0)
     max_frames = _int_form(
         "max_frames",
         services.config.animation.max_gif_frames,
@@ -413,6 +416,9 @@ def _gif_upload_options(services: MatrixArtServices) -> dict[str, object]:
         "crop_x": max(0.0, crop_x),
         "crop_y": max(0.0, crop_y),
         "crop_size": max(0.0, crop_size),
+        "transform_scale": max(0.0, transform_scale),
+        "offset_x": offset_x,
+        "offset_y": offset_y,
         "max_frames": max_frames,
         "default_duration_ms": default_duration_ms,
         "min_duration_ms": min_duration_ms,
@@ -438,6 +444,9 @@ def _decode_gif_upload(services: MatrixArtServices) -> tuple[list[tuple[Image.Im
             crop_x=float(options.get("crop_x", 0.0)),
             crop_y=float(options.get("crop_y", 0.0)),
             crop_size=(float(options.get("crop_size", 0.0)) or None),
+            transform_scale=(float(options.get("transform_scale", 0.0)) or None),
+            offset_x=float(options.get("offset_x", 0.0)),
+            offset_y=float(options.get("offset_y", 0.0)),
             max_frames=int(options["max_frames"]),
             default_duration_ms=int(options["default_duration_ms"]),
             min_duration_ms=int(options["min_duration_ms"]),
@@ -1028,6 +1037,7 @@ def create_app(services: MatrixArtServices) -> Flask:
                 checksum=None,
                 settings_label=(
                     f"gif:{options['scale_mode']}:{options['resample']}:"
+                    f"scale={options.get('transform_scale', 0)}:{options.get('offset_x', 0)}:{options.get('offset_y', 0)}:"
                     f"crop={options.get('crop_x', 0)}:{options.get('crop_y', 0)}:{options.get('crop_size', 0)}:"
                     f"{options['max_frames']}:{options['default_duration_ms']}:"
                     f"{options['min_duration_ms']}:{options['max_duration_ms']}"

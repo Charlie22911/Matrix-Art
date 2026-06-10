@@ -1,6 +1,6 @@
 # Upload Page
 
-The Upload page imports still images and animated GIFs from a browser, lets you crop/scale them, previews the 64×64 result, and saves the panel-ready result into SQLite.
+The Upload page imports still images and animated GIFs from a browser, lets users scale or stretch them, previews the 64×64 result, and saves the panel-ready result into SQLite.
 
 ## Supported browser input
 
@@ -14,7 +14,7 @@ The file picker accepts:
 
 Still images are rendered in the browser to an exact 64×64 PNG preview. That exact preview is saved to the library.
 
-GIFs are processed by the Pi using the same crop, scale, and animation settings shown in the browser preview. The original GIF file is not stored.
+GIFs are processed by the Pi using the same scale, position, resampling, background, and animation settings shown in the browser preview. The original GIF file is not stored.
 
 ## Main fields
 
@@ -44,10 +44,12 @@ These controls affect still images and GIFs.
 
 ### Mode
 
-- Crop square: user-positioned square crop becomes the 64×64 result.
-- Fit full image: preserves the full source image and pads the remaining area.
-- Fill/crop center: fills the whole 64×64 area while preserving aspect ratio, cropping edges as needed.
+The Upload page has two modes:
+
+- Scale: preserves the source image aspect ratio. Users can fit the whole image, fill the full panel, zoom further, and drag the highlighted source selection area when it is smaller than the image.
 - Stretch: forces the source into 64×64 without preserving aspect ratio.
+
+The default mode is controlled by `config.toml` under `[image] scale_mode`. Older values such as `fit`, `fill`, and `crop` open as Scale mode. The shipped default is `fit`, which starts Scale mode at the Fit position so non-square images are fully visible with padding.
 
 ### Resampling
 
@@ -60,23 +62,38 @@ For pixel art, use Nearest/pixel.
 
 ### Background
 
-Used for padded areas when using Fit full image.
+Used for padded areas when Scale mode is zoomed out far enough to leave empty space around the image.
 
-### Crop zoom
+### Zoom
 
-Adjusts how much of the source image fits inside the crop square.
+Appears in Scale mode. It adjusts how large the source image is on the 64×64 panel.
 
-### Fit square
+The minimum zoom is Fit, which keeps the entire source image visible. The maximum zoom is intentionally limited to a practical range so users can crop into an image without accidentally creating extreme transforms. The zoom label shows the zoom relative to Fit and the current source-to-LED pixel ratio.
 
-Sets the crop square so the whole image fits.
+### Fit
 
-### Center crop
+Appears in Scale mode. It shows the entire source image and pads the remaining area with the selected background color.
 
-Centers the crop square.
+### Fill
 
-## Source crop area
+Appears in Scale mode. It scales the image until the whole 64×64 panel is covered. Non-square images are cropped at the edges, and the highlighted source selection area can be dragged to choose the visible area.
 
-The source crop canvas shows the original image and the crop square. Drag the crop square to reposition the selected area.
+### Pixel snap
+
+Appears in Scale mode. It snaps both zoom and position to the source-pixel grid. This is useful for pixel art and other images where users want source pixels to land cleanly on the 64×64 matrix.
+
+Pixel snap chooses an aligned zoom near the current slider position:
+
+- zoom-in values use whole LED-per-source-pixel scales such as 1 LED per source pixel, 2 LEDs per source pixel, or 3 LEDs per source pixel
+- zoom-out values use whole source-pixels-per-LED scales such as 2 source pixels per LED, 3 source pixels per LED, or 4 source pixels per LED
+
+If the full source image is currently visible, Pixel snap prefers the nearest aligned zoom-out value. This helps slightly oversized pixel-art images stay fully visible with background padding instead of snapping inward and cropping. Zoom-out snap is limited so the image does not become impractically small.
+
+The source position is snapped at the same time. When zoomed in, the selected source origin snaps to whole source pixels. When zoomed out, it snaps to whole source-pixel groups. Dragging the highlighted source selection after Pixel snap keeps the selection on the same pixel-aligned grid.
+
+## Source area
+
+The source area shows the original image. In Scale mode, the highlighted rectangle shows which part of the source image contributes to the 64×64 result. Dragging the highlighted rectangle down selects a lower part of the source image, and dragging it right selects a farther-right part of the source image.
 
 On touch devices, drag with a finger. On PC, drag with the mouse.
 
@@ -87,7 +104,7 @@ The preview area shows:
 - the exact 64×64 browser preview
 - a large integer-scaled grid preview
 
-The grid overlay represents the physical LED cells. It is drawn at integer scale to avoid interpolation artifacts.
+The grid overlay represents the physical LED cells. It is drawn at integer scale to avoid interpolation artifacts. Pixel snap uses this same idea for uploads by keeping the source-image pixel grid aligned to the matrix pixel grid.
 
 ## GIF animation settings
 
@@ -135,5 +152,3 @@ Saves the preview into SQLite.
 
 - still image: saves exact 64×64 preview PNG
 - GIF: saves processed 64×64 frames and per-frame durations
-
-After saving, the item appears in the Library.

@@ -100,6 +100,20 @@ Max FPS of `0` means uncapped, with a safety ceiling of 1000 FPS.
 
 Disabling the Code editor hides the Code navigation link and blocks `/code` and `/code/help`. Existing Code items may still exist in the Library depending on database state, but editing is disabled, and they can still be deleted.
 
+
+## Image defaults
+
+Upload defaults are set in `config.toml` under `[image]`.
+
+Options:
+
+- `target_width` and `target_height`: panel output size, normally `64` by `64`
+- `scale_mode`: default Upload page scale preset, normally `fit`
+- `resample`: default scaling method, normally `nearest`
+- `background_color`: padding color used when Scale mode leaves empty space around the image
+
+The Upload page now presents `fit`, `fill`, and `crop` behavior through one Scale mode with Fit and Fill buttons plus a zoom slider. The shipped default `scale_mode = "fit"` starts non-square uploads fully visible with padding. Stretch remains available for users who want to reshape the source directly to 64×64.
+
 ## Animation defaults
 
 Defaults used by the Upload page for GIF processing.

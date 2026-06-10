@@ -19,8 +19,10 @@ const scaleMode = document.getElementById('scaleMode');
 const resampleMode = document.getElementById('resampleMode');
 const bgInput = document.getElementById('backgroundColor');
 const zoomInput = document.getElementById('cropZoom');
+const zoomValue = document.getElementById('zoomValue');
 const fitCropBtn = document.getElementById('fitCropBtn');
 const centerCropBtn = document.getElementById('centerCropBtn');
+const integerZoomBtn = document.getElementById('integerZoomBtn');
 
 const gifMaxFrames = document.getElementById('gifMaxFrames');
 const gifDefaultDuration = document.getElementById('gifDefaultDuration');
@@ -39,7 +41,8 @@ let sourceImage = null;
 let fileKind = 'none'; // none, still, gif
 let currentObjectUrl = null;
 let imageRect = {x: 0, y: 0, w: 1, h: 1, scale: 1};
-let crop = {x: 0, y: 0, size: 1};
+let transform = {scale: 1, x: 0, y: 0}; // destination transform in 64x64 panel coordinates
+let pixelSnapActive = false;
 let dragging = false;
 let dragOffset = {x: 0, y: 0};
 
@@ -72,7 +75,7 @@ function isGifFile(file) {
 }
 
 function activeScaleMode() {
-  return scaleMode?.value || 'crop';
+  return scaleMode?.value || 'scale';
 }
 
 function activeBackground() {
@@ -84,30 +87,293 @@ function imageSmoothingEnabled() {
   return !(mode === 'nearest' || mode === 'pixel');
 }
 
+function fitScale() {
+  if (!sourceImage) return 1;
+  return Math.min(64 / sourceImage.naturalWidth, 64 / sourceImage.naturalHeight);
+}
+
+function fillScale() {
+  if (!sourceImage) return 1;
+  return Math.max(64 / sourceImage.naturalWidth, 64 / sourceImage.naturalHeight);
+}
+
+function maxScale() {
+  if (!sourceImage) return 8;
+  return Math.max(fillScale() * 8, fitScale() * 8, fillScale() + 0.0001);
+}
+
+function minScale() {
+  if (!sourceImage) return 1;
+  if (!pixelSnapActive) return fitScale();
+  return pixelSnapMinScale();
+}
+
+function pixelSnapMinScale() {
+  if (!sourceImage) return 1;
+  const fit = fitScale();
+  const largestSide = Math.max(sourceImage.naturalWidth, sourceImage.naturalHeight, 1);
+  // Pixel snap may zoom out below Fit so oversized pixel art can land on a
+  // clean source-pixel grid with background padding. Keep that within a
+  // practical range by requiring the largest side to stay about half-panel
+  // size or larger.
+  const halfPanelScale = 32 / largestSide;
+  return Math.max(0.0001, Math.min(fit, halfPanelScale));
+}
+
+function setZoomRange() {
+  if (!zoomInput || !sourceImage) return;
+  const min = minScale();
+  const max = maxScale();
+  zoomInput.min = String(min);
+  zoomInput.max = String(max);
+  zoomInput.step = String(Math.max(0.0001, (max - min) / 800));
+  zoomInput.value = String(clamp(transform.scale, min, max));
+  updateZoomLabel();
+}
+
+function zoomMultiple() {
+  if (!sourceImage) return 1;
+  return transform.scale / fitScale();
+}
+
+function scalePixelRatioLabel(scale) {
+  const safeScale = Math.max(0.0001, Number(scale || 0.0001));
+  if (safeScale >= 1) {
+    return `${safeScale.toFixed(safeScale >= 10 ? 1 : 2)} LED/src`;
+  }
+  return `${(1 / safeScale).toFixed(2)} src/LED`;
+}
+
+function updateZoomLabel() {
+  if (!zoomValue || !sourceImage) return;
+  const multiple = zoomMultiple();
+  const pct = Math.round(multiple * 100);
+  const snapText = pixelSnapActive ? ' · snapped' : '';
+  zoomValue.textContent = `${pct}% fit · ${scalePixelRatioLabel(transform.scale)}${snapText}`;
+}
+
+function panelOffsetStepForScale(scale) {
+  const safeScale = Math.max(0.0001, Number(scale || 0.0001));
+  if (safeScale >= 1) return Math.max(1, Math.round(safeScale));
+  return 1;
+}
+
+function sourceOriginStepForScale(scale) {
+  const safeScale = Math.max(0.0001, Number(scale || 0.0001));
+  if (safeScale >= 1) return 1;
+  return Math.max(1, Math.round(1 / safeScale));
+}
+
+function snapPanelOffset(value, min, max, step) {
+  const safeStep = Math.max(1, Number(step || 1));
+  const lo = Math.ceil(min / safeStep) * safeStep;
+  const hi = Math.floor(max / safeStep) * safeStep;
+  if (lo > hi) return clamp(Math.round(value), min, max);
+  return clamp(Math.round(value / safeStep) * safeStep, lo, hi);
+}
+
+function snapSourceOrigin(value, max, step) {
+  const safeStep = Math.max(1, Number(step || 1));
+  const hi = Math.floor(Math.max(0, max) / safeStep) * safeStep;
+  return clamp(Math.round(value / safeStep) * safeStep, 0, hi);
+}
+
+function clampTransform() {
+  if (!sourceImage) return;
+  const min = minScale();
+  const max = maxScale();
+  transform.scale = clamp(Number(transform.scale || min), min, max);
+
+  const w = sourceImage.naturalWidth * transform.scale;
+  const h = sourceImage.naturalHeight * transform.scale;
+  const offsetStep = pixelSnapActive ? panelOffsetStepForScale(transform.scale) : 1;
+
+  if (w <= 64) {
+    const centered = (64 - w) / 2;
+    transform.x = pixelSnapActive ? snapPanelOffset(centered, 0, 64 - w, offsetStep) : centered;
+  } else {
+    const x = clamp(Number(transform.x || 0), 64 - w, 0);
+    transform.x = pixelSnapActive ? snapPanelOffset(x, 64 - w, 0, offsetStep) : x;
+  }
+
+  if (h <= 64) {
+    const centered = (64 - h) / 2;
+    transform.y = pixelSnapActive ? snapPanelOffset(centered, 0, 64 - h, offsetStep) : centered;
+  } else {
+    const y = clamp(Number(transform.y || 0), 64 - h, 0);
+    transform.y = pixelSnapActive ? snapPanelOffset(y, 64 - h, 0, offsetStep) : y;
+  }
+
+  setZoomRange();
+}
+
+function setScaleCentered(scale) {
+  if (!sourceImage) return;
+  transform.scale = scale;
+  const w = sourceImage.naturalWidth * transform.scale;
+  const h = sourceImage.naturalHeight * transform.scale;
+  transform.x = (64 - w) / 2;
+  transform.y = (64 - h) / 2;
+  clampTransform();
+}
+
+function setScaleKeepingPanelCenter(scale) {
+  if (!sourceImage) return;
+  const oldScale = Math.max(0.0001, Number(transform.scale || fitScale()));
+  const centerSourceX = (32 - Number(transform.x || 0)) / oldScale;
+  const centerSourceY = (32 - Number(transform.y || 0)) / oldScale;
+  transform.scale = scale;
+  transform.x = 32 - centerSourceX * transform.scale;
+  transform.y = 32 - centerSourceY * transform.scale;
+  clampTransform();
+}
+
+function pixelAlignedScaleCandidates() {
+  if (!sourceImage) return [1];
+  const min = pixelSnapMinScale();
+  const max = maxScale();
+  const candidates = [];
+  const seen = new Set();
+  const addCandidate = scale => {
+    const value = Number(scale);
+    if (!Number.isFinite(value)) return;
+    if (value < min - 1e-9 || value > max + 1e-9) return;
+    const key = value.toFixed(9);
+    if (!seen.has(key)) {
+      seen.add(key);
+      candidates.push(value);
+    }
+  };
+
+  const reciprocalLimit = Math.min(1024, Math.max(2, Math.ceil(1 / Math.max(min, 0.0001)) + 4));
+  for (let denominator = reciprocalLimit; denominator >= 2; denominator--) {
+    addCandidate(1 / denominator);
+  }
+  const integerLimit = Math.min(256, Math.max(1, Math.ceil(max) + 1));
+  for (let scale = 1; scale <= integerLimit; scale++) {
+    addCandidate(scale);
+  }
+
+  if (!candidates.length) addCandidate(clamp(transform.scale || min, min, max));
+  return candidates.sort((a, b) => a - b);
+}
+
+function fullSourceVisible() {
+  if (!sourceImage) return false;
+  const rect = visibleSourceRect();
+  if (!rect) return false;
+  const eps = 0.01;
+  return rect.x <= eps
+    && rect.y <= eps
+    && rect.x + rect.w >= sourceImage.naturalWidth - eps
+    && rect.y + rect.h >= sourceImage.naturalHeight - eps;
+}
+
+function nearestPixelAlignedScale(currentScale, {preferZoomOut = false} = {}) {
+  const current = Math.max(0.0001, Number(currentScale || fitScale()));
+  const candidates = pixelAlignedScaleCandidates();
+
+  if (preferZoomOut) {
+    const lower = candidates.filter(candidate => candidate <= current + 1e-9);
+    if (lower.length) return lower[lower.length - 1];
+  }
+
+  let best = candidates[0] || current;
+  let bestDistance = Infinity;
+  candidates.forEach(candidate => {
+    const distance = Math.abs(Math.log(candidate / current));
+    if (distance < bestDistance) {
+      best = candidate;
+      bestDistance = distance;
+    }
+  });
+  return best;
+}
+
+function snapToPixelGrid() {
+  if (!sourceImage) return;
+  const oldScale = Math.max(0.0001, Number(transform.scale || fitScale()));
+  const centerSourceX = (32 - Number(transform.x || 0)) / oldScale;
+  const centerSourceY = (32 - Number(transform.y || 0)) / oldScale;
+  const targetScale = nearestPixelAlignedScale(oldScale, {preferZoomOut: fullSourceVisible()});
+
+  pixelSnapActive = true;
+  transform.scale = targetScale;
+
+  const viewW = 64 / targetScale;
+  const viewH = 64 / targetScale;
+  const sourceStep = sourceOriginStepForScale(targetScale);
+
+  if (sourceImage.naturalWidth * targetScale <= 64) {
+    transform.x = snapPanelOffset((64 - sourceImage.naturalWidth * targetScale) / 2, 0, 64 - sourceImage.naturalWidth * targetScale, panelOffsetStepForScale(targetScale));
+  } else {
+    const maxX = Math.max(0, sourceImage.naturalWidth - viewW);
+    const x = snapSourceOrigin(centerSourceX - viewW / 2, maxX, sourceStep);
+    transform.x = -x * targetScale;
+  }
+
+  if (sourceImage.naturalHeight * targetScale <= 64) {
+    transform.y = snapPanelOffset((64 - sourceImage.naturalHeight * targetScale) / 2, 0, 64 - sourceImage.naturalHeight * targetScale, panelOffsetStepForScale(targetScale));
+  } else {
+    const maxY = Math.max(0, sourceImage.naturalHeight - viewH);
+    const y = snapSourceOrigin(centerSourceY - viewH / 2, maxY, sourceStep);
+    transform.y = -y * targetScale;
+  }
+
+  clampTransform();
+}
+
+function setInitialTransform() {
+  if (!sourceImage) return;
+  pixelSnapActive = false;
+  const defaultMode = (scaleMode?.dataset?.defaultScaleMode || '').toLowerCase();
+  if (defaultMode === 'fill' || defaultMode === 'crop') {
+    setScaleCentered(fillScale());
+  } else {
+    setScaleCentered(fitScale());
+  }
+}
+
 function updateModeVisibility() {
   const hasFile = fileKind !== 'none';
   const isGif = fileKind === 'gif';
+  const mode = activeScaleMode();
   transformControls?.classList.toggle('hidden-panel', !hasFile);
   gifControls?.classList.toggle('hidden-panel', !isGif);
   sourceArea?.classList.toggle('hidden-panel', !hasFile);
-  document.querySelectorAll('.crop-only').forEach(el => {
-    el.classList.toggle('hidden-panel', !(hasFile && activeScaleMode() === 'crop'));
+  document.querySelectorAll('.scale-only').forEach(el => {
+    el.classList.toggle('hidden-panel', !(hasFile && mode === 'scale'));
   });
   if (saveBtn) {
     saveBtn.disabled = !sourceFile || !sourceImage || fileKind === 'none';
     saveBtn.textContent = isGif ? 'Save GIF to library' : 'Save preview to library';
   }
   if (previewPanelBtn) previewPanelBtn.disabled = !sourceFile || !sourceImage || fileKind === 'none';
-  if (sourceLabel) sourceLabel.textContent = isGif ? 'Source GIF crop' : 'Source crop';
-  if (sourceHelp) {
-    sourceHelp.textContent = isGif
-      ? 'Drag the crop square or adjust zoom. The animated 64×64 preview is generated from these exact settings.'
-      : 'Drag the crop square. Use the zoom slider to change how much of the source image becomes the 64×64 result.';
+
+  if (sourceLabel) {
+    sourceLabel.textContent = mode === 'stretch'
+      ? (isGif ? 'Source GIF' : 'Source image')
+      : (isGif ? 'Source GIF scale' : 'Source scale');
   }
+
+  if (sourceHelp) {
+    if (mode === 'scale') {
+      sourceHelp.textContent = isGif
+        ? 'Scale mode keeps aspect ratio. Use Fit or Fill, adjust zoom, then use Pixel snap to align source pixels to matrix pixels. If the whole image is visible, Pixel snap may zoom out and add padding.'
+        : 'Scale mode keeps aspect ratio. Use Fit or Fill, adjust zoom, then use Pixel snap to align source pixels to matrix pixels. If the whole image is visible, Pixel snap may zoom out and add padding.';
+    } else {
+      sourceHelp.textContent = 'Stretch scales the source directly to 64×64 and may distort non-square images.';
+    }
+  }
+
   if (previewHelp) {
-    previewHelp.textContent = isGif
-      ? 'This is the processed animated GIF preview. Panel preview and save use the same crop, scaling, and timing settings.'
-      : 'Grid lines show the 64×64 RGB matrix cells. The saved image is the exact 64×64 preview shown here.';
+    if (isGif) {
+      previewHelp.textContent = 'This is the processed animated GIF preview. Panel preview and save use the same scale, timing, and background settings.';
+    } else if (mode === 'scale') {
+      previewHelp.textContent = 'Grid lines show the 64×64 RGB matrix cells. Scale mode can fit, fill, zoom further, or snap zoom and position to the source-pixel grid. Snap can zoom out from Fit when that better preserves the full source image.';
+    } else {
+      previewHelp.textContent = 'Grid lines show the 64×64 RGB matrix cells. Stretch mode saves the full image reshaped to a square.';
+    }
   }
 }
 
@@ -142,31 +408,6 @@ function computeImageRect() {
   imageRect = {x: (cw - w) / 2, y: (ch - h) / 2, w, h, scale};
 }
 
-function setCropFromZoom(centerExisting = true) {
-  if (!sourceImage) return;
-  const minDim = Math.min(sourceImage.naturalWidth, sourceImage.naturalHeight);
-  const zoom = clamp(Number(zoomInput.value || 1), 1, 8);
-  const size = Math.max(1, minDim / zoom);
-  const oldCenterX = crop.x + crop.size / 2;
-  const oldCenterY = crop.y + crop.size / 2;
-  crop.size = size;
-  if (centerExisting) {
-    crop.x = oldCenterX - size / 2;
-    crop.y = oldCenterY - size / 2;
-  } else {
-    crop.x = (sourceImage.naturalWidth - size) / 2;
-    crop.y = (sourceImage.naturalHeight - size) / 2;
-  }
-  clampCrop();
-}
-
-function clampCrop() {
-  if (!sourceImage) return;
-  crop.size = clamp(crop.size, 1, Math.min(sourceImage.naturalWidth, sourceImage.naturalHeight));
-  crop.x = clamp(crop.x, 0, sourceImage.naturalWidth - crop.size);
-  crop.y = clamp(crop.y, 0, sourceImage.naturalHeight - crop.size);
-}
-
 function canvasToSource(clientX, clientY) {
   const rect = sourceCanvas.getBoundingClientRect();
   const cx = (clientX - rect.left) * (sourceCanvas.width / rect.width);
@@ -175,6 +416,16 @@ function canvasToSource(clientX, clientY) {
     x: (cx - imageRect.x) / imageRect.scale,
     y: (cy - imageRect.y) / imageRect.scale,
   };
+}
+
+function visibleSourceRect() {
+  if (!sourceImage || transform.scale <= 0) return null;
+  const sx0 = clamp((0 - transform.x) / transform.scale, 0, sourceImage.naturalWidth);
+  const sy0 = clamp((0 - transform.y) / transform.scale, 0, sourceImage.naturalHeight);
+  const sx1 = clamp((64 - transform.x) / transform.scale, 0, sourceImage.naturalWidth);
+  const sy1 = clamp((64 - transform.y) / transform.scale, 0, sourceImage.naturalHeight);
+  if (sx1 <= sx0 || sy1 <= sy0) return null;
+  return {x: sx0, y: sy0, w: sx1 - sx0, h: sy1 - sy0};
 }
 
 function drawSource() {
@@ -186,43 +437,39 @@ function drawSource() {
   sourceCtx.imageSmoothingEnabled = imageSmoothingEnabled();
   sourceCtx.drawImage(sourceImage, imageRect.x, imageRect.y, imageRect.w, imageRect.h);
 
-  if (activeScaleMode() === 'crop') {
-    const x = imageRect.x + crop.x * imageRect.scale;
-    const y = imageRect.y + crop.y * imageRect.scale;
-    const size = crop.size * imageRect.scale;
+  if (activeScaleMode() === 'scale') {
+    const rect = visibleSourceRect();
+    if (!rect) return;
+    const x = imageRect.x + rect.x * imageRect.scale;
+    const y = imageRect.y + rect.y * imageRect.scale;
+    const w = rect.w * imageRect.scale;
+    const h = rect.h * imageRect.scale;
 
     sourceCtx.save();
     sourceCtx.fillStyle = 'rgba(0, 0, 0, 0.45)';
     sourceCtx.fillRect(imageRect.x, imageRect.y, imageRect.w, imageRect.h);
-    sourceCtx.clearRect(x, y, size, size);
-    sourceCtx.drawImage(sourceImage, crop.x, crop.y, crop.size, crop.size, x, y, size, size);
+    sourceCtx.clearRect(x, y, w, h);
+    sourceCtx.drawImage(sourceImage, rect.x, rect.y, rect.w, rect.h, x, y, w, h);
     sourceCtx.strokeStyle = '#ffffff';
     sourceCtx.lineWidth = 2;
-    sourceCtx.strokeRect(x + 1, y + 1, size - 2, size - 2);
+    sourceCtx.strokeRect(x + 1, y + 1, Math.max(0, w - 2), Math.max(0, h - 2));
     sourceCtx.strokeStyle = '#69a7ff';
     sourceCtx.lineWidth = 1;
-    sourceCtx.strokeRect(x + 5, y + 5, size - 10, size - 10);
+    sourceCtx.strokeRect(x + 5, y + 5, Math.max(0, w - 10), Math.max(0, h - 10));
     sourceCtx.restore();
   }
 }
 
-function drawFitLike(mode) {
+function drawScaledPreview() {
   previewCtx.fillStyle = activeBackground();
   previewCtx.fillRect(0, 0, 64, 64);
   previewCtx.imageSmoothingEnabled = imageSmoothingEnabled();
-
-  const iw = sourceImage.naturalWidth;
-  const ih = sourceImage.naturalHeight;
-  if (mode === 'stretch') {
-    previewCtx.drawImage(sourceImage, 0, 0, 64, 64);
-    return;
-  }
-
-  const scale = mode === 'fill' ? Math.max(64 / iw, 64 / ih) : Math.min(64 / iw, 64 / ih);
-  const w = Math.max(1, Math.round(iw * scale));
-  const h = Math.max(1, Math.round(ih * scale));
-  const x = Math.round((64 - w) / 2);
-  const y = Math.round((64 - h) / 2);
+  if (!sourceImage) return;
+  clampTransform();
+  const w = Math.max(1, Math.round(sourceImage.naturalWidth * transform.scale));
+  const h = Math.max(1, Math.round(sourceImage.naturalHeight * transform.scale));
+  const x = Math.round(transform.x);
+  const y = Math.round(transform.y);
   previewCtx.drawImage(sourceImage, x, y, w, h);
 }
 
@@ -234,11 +481,10 @@ function drawSourcePreviewFrame() {
   if (!sourceImage) return;
 
   previewCtx.imageSmoothingEnabled = imageSmoothingEnabled();
-  const mode = activeScaleMode();
-  if (mode === 'crop') {
-    previewCtx.drawImage(sourceImage, crop.x, crop.y, crop.size, crop.size, 0, 0, 64, 64);
+  if (activeScaleMode() === 'stretch') {
+    previewCtx.drawImage(sourceImage, 0, 0, 64, 64);
   } else {
-    drawFitLike(mode);
+    drawScaledPreview();
   }
 }
 
@@ -287,7 +533,10 @@ function drawPreview() {
 }
 
 function redrawAll() {
-  if (sourceImage) computeImageRect();
+  if (sourceImage) {
+    computeImageRect();
+    clampTransform();
+  }
   updateModeVisibility();
   drawSource();
   drawPreview();
@@ -337,12 +586,18 @@ function clearGifPreviewFrames() {
 }
 
 function appendTransformOptions(form) {
+  clampTransform();
   form.append('scale_mode', activeScaleMode());
   form.append('resample', resampleMode?.value || 'nearest');
   form.append('background_color', activeBackground());
-  form.append('crop_x', String(Math.round(crop.x * 1000) / 1000));
-  form.append('crop_y', String(Math.round(crop.y * 1000) / 1000));
-  form.append('crop_size', String(Math.round(crop.size * 1000) / 1000));
+  form.append('transform_scale', String(Math.round(transform.scale * 1000000) / 1000000));
+  form.append('offset_x', String(Math.round(transform.x * 1000) / 1000));
+  form.append('offset_y', String(Math.round(transform.y * 1000) / 1000));
+
+  const rect = visibleSourceRect() || {x: 0, y: 0, w: sourceImage?.naturalWidth || 1, h: sourceImage?.naturalHeight || 1};
+  form.append('crop_x', String(Math.round(rect.x * 1000) / 1000));
+  form.append('crop_y', String(Math.round(rect.y * 1000) / 1000));
+  form.append('crop_size', String(Math.round(Math.min(rect.w, rect.h) * 1000) / 1000));
 }
 
 function appendGifOptions(form) {
@@ -429,13 +684,7 @@ fileInput?.addEventListener('change', () => {
   img.onload = () => {
     sourceImage = img;
     computeImageRect();
-    zoomInput.value = '1';
-    const size = Math.min(img.naturalWidth, img.naturalHeight);
-    crop = {
-      x: (img.naturalWidth - size) / 2,
-      y: (img.naturalHeight - size) / 2,
-      size,
-    };
+    setInitialTransform();
     setKindLabel(fileKind === 'gif' ? 'Animated GIF' : 'Still image');
     setStatus(`Loaded ${file.name} (${img.naturalWidth}×${img.naturalHeight}).`);
     redrawAll();
@@ -456,23 +705,38 @@ fileInput?.addEventListener('change', () => {
 });
 
 sourceCanvas?.addEventListener('pointerdown', ev => {
-  if (!sourceImage || activeScaleMode() !== 'crop') return;
+  if (!sourceImage || activeScaleMode() !== 'scale') return;
+  const rect = visibleSourceRect();
+  if (!rect) return;
   sourceCanvas.setPointerCapture(ev.pointerId);
   const p = canvasToSource(ev.clientX, ev.clientY);
   dragging = true;
-  dragOffset = {x: p.x - crop.x, y: p.y - crop.y};
+  dragOffset = {x: p.x - rect.x, y: p.y - rect.y};
   ev.preventDefault();
 });
 
 sourceCanvas?.addEventListener('pointermove', ev => {
   if (!dragging || !sourceImage) return;
   const p = canvasToSource(ev.clientX, ev.clientY);
-  crop.x = p.x - dragOffset.x;
-  crop.y = p.y - dragOffset.y;
-  clampCrop();
+  const rect = visibleSourceRect();
+  if (!rect) return;
+
+  const maxX = Math.max(0, sourceImage.naturalWidth - rect.w);
+  const maxY = Math.max(0, sourceImage.naturalHeight - rect.h);
+  let targetX = clamp(p.x - dragOffset.x, 0, maxX);
+  let targetY = clamp(p.y - dragOffset.y, 0, maxY);
+  if (pixelSnapActive) {
+    const step = sourceOriginStepForScale(transform.scale);
+    targetX = snapSourceOrigin(targetX, maxX, step);
+    targetY = snapSourceOrigin(targetY, maxY, step);
+  }
+
+  transform.x = -targetX * transform.scale;
+  transform.y = -targetY * transform.scale;
+  clampTransform();
   if (fileKind === 'gif') clearGifPreviewFrames();
   redrawAll();
-  if (fileKind === 'gif') scheduleGifPreviewRender('Updating animated crop preview...');
+  if (fileKind === 'gif') scheduleGifPreviewRender('Updating animated scale preview...');
   ev.preventDefault();
 });
 
@@ -480,7 +744,7 @@ function endDrag(ev) {
   if (!dragging) return;
   dragging = false;
   try { sourceCanvas.releasePointerCapture(ev.pointerId); } catch (_) {}
-  if (fileKind === 'gif') scheduleGifPreviewRender('Updating animated crop preview...');
+  if (fileKind === 'gif') scheduleGifPreviewRender('Updating animated scale preview...');
 }
 sourceCanvas?.addEventListener('pointerup', endDrag);
 sourceCanvas?.addEventListener('pointercancel', endDrag);
@@ -493,21 +757,27 @@ function transformChanged({clearGif = true} = {}) {
 }
 
 zoomInput?.addEventListener('input', () => {
-  setCropFromZoom(true);
+  pixelSnapActive = false;
+  setScaleKeepingPanelCenter(Number(zoomInput.value || fitScale()));
   transformChanged();
 });
 fitCropBtn?.addEventListener('click', () => {
-  zoomInput.value = '1';
-  setCropFromZoom(false);
+  pixelSnapActive = false;
+  setScaleCentered(fitScale());
   transformChanged();
 });
 centerCropBtn?.addEventListener('click', () => {
-  setCropFromZoom(false);
+  pixelSnapActive = false;
+  setScaleCentered(fillScale());
+  transformChanged();
+});
+integerZoomBtn?.addEventListener('click', () => {
+  snapToPixelGrid();
   transformChanged();
 });
 [scaleMode, resampleMode, bgInput].forEach(el => {
-  el?.addEventListener('input', () => transformChanged());
-  el?.addEventListener('change', () => transformChanged());
+  el?.addEventListener('input', () => { pixelSnapActive = false; transformChanged(); });
+  el?.addEventListener('change', () => { pixelSnapActive = false; transformChanged(); });
 });
 [gifMaxFrames, gifDefaultDuration, gifMinDuration, gifMaxDuration].forEach(el => {
   el?.addEventListener('input', () => {

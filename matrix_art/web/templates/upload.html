@@ -43,11 +43,10 @@
         <div id="transformControls" class="hidden-panel">
           <div class="two-col">
             <label class="field-label">Mode
-              <select id="scaleMode">
-                <option value="crop" selected>Crop square</option>
-                <option value="fit">Fit full image</option>
-                <option value="fill">Fill/crop center</option>
-                <option value="stretch">Stretch</option>
+              <select id="scaleMode" data-default-scale-mode="{{ image_scale_mode }}">
+                {% set image_scale_mode = config.image.scale_mode|default('fit')|lower %}
+                <option value="scale" {% if image_scale_mode != 'stretch' %}selected{% endif %}>Scale</option>
+                <option value="stretch" {% if image_scale_mode == 'stretch' %}selected{% endif %}>Stretch</option>
               </select>
             </label>
             <label class="field-label">Resampling
@@ -62,12 +61,13 @@
           <label class="field-label">Background
             <input id="backgroundColor" type="color" value="{{ config.image.background_color }}">
           </label>
-          <label class="field-label crop-only">Crop zoom
+          <label class="field-label scale-only">Zoom <span id="zoomValue" class="subtle">100%</span>
             <input id="cropZoom" type="range" min="1" max="8" step="0.01" value="1">
           </label>
-          <div class="button-row crop-only">
-            <button class="btn" id="fitCropBtn" type="button">Fit square</button>
-            <button class="btn" id="centerCropBtn" type="button">Center crop</button>
+          <div class="button-row scale-only">
+            <button class="btn" id="fitCropBtn" type="button">Fit</button>
+            <button class="btn" id="centerCropBtn" type="button">Fill</button>
+            <button class="btn" id="integerZoomBtn" type="button">Pixel snap</button>
           </div>
         </div>
 
@@ -89,7 +89,7 @@
               <input id="gifMaxDuration" type="number" min="1" max="60000" value="{{ config.animation.max_frame_duration_ms }}">
             </label>
           </div>
-          <p class="subtle">The browser preview, panel preview, and save all use these settings plus the crop/scale controls above.</p>
+          <p class="subtle">The browser preview, panel preview, and save all use these settings plus the scale controls above.</p>
         </div>
 
         <label class="enabled-check"><input id="uploadEnabled" type="checkbox" checked> Enabled in slideshow/library</label>
@@ -104,7 +104,7 @@
       <div class="crop-area hidden-panel" id="sourceArea">
         <div class="label" id="sourceLabel">Source crop</div>
         <canvas id="sourceCanvas" class="source-canvas" width="512" height="512"></canvas>
-        <p class="subtle" id="sourceHelp">Drag the crop square. Use the zoom slider to change how much of the source image becomes the 64×64 result.</p>
+        <p class="subtle" id="sourceHelp">Scale mode keeps aspect ratio. Use Fit or Fill, adjust zoom, then use Pixel snap to align source pixels to matrix pixels. If the whole image is visible, Pixel snap may zoom out and add padding.</p>
       </div>
 
       <div class="preview-area">
@@ -113,7 +113,7 @@
         <div class="preview-large-wrap">
           <canvas id="previewLarge" class="preview-large" width="512" height="512"></canvas>
         </div>
-        <p class="subtle" id="previewHelp">Grid lines show the 64×64 RGB matrix cells. Still images save the exact preview; GIFs save the processed animated preview.</p>
+        <p class="subtle" id="previewHelp">Grid lines show the 64×64 RGB matrix cells. Scale mode can fit the whole image, fill the panel, zoom further, or snap zoom and position to the source-pixel grid. Pixel snap can zoom out from Fit when that better preserves the full image.</p>
       </div>
     </div>
   </section>
