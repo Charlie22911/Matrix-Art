@@ -2,12 +2,6 @@
 
 The Settings page contains administrative and system-level controls.
 
-Route:
-
-```text
-/settings
-```
-
 Settings can be protected by a PIN. When locked, Matrix-Art shows the Settings unlock page and blocks Settings-only API actions.
 
 ## Settings PIN
@@ -68,7 +62,7 @@ Options:
 
 Max FPS of `0` means uncapped, with a safety ceiling of 1000 FPS.
 
-Disabling the Code editor hides the Code navigation link and blocks `/code` and `/code/help`. Existing Code items may still exist in the Library depending on database state, but editing is disabled.
+Disabling the Code editor hides the Code navigation link and blocks `/code` and `/code/help`. Existing Code items may still exist in the Library depending on database state, but editing is disabled, and they can still be deleted.
 
 ## Animation defaults
 
