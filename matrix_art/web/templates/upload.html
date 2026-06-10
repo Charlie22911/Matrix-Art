@@ -89,7 +89,7 @@
               <input id="gifMaxDuration" type="number" min="1" max="60000" value="{{ config.animation.max_frame_duration_ms }}">
             </label>
           </div>
-          <p class="subtle">The browser preview, panel preview, and save all use these settings plus the scale controls above.</p>
+          <p class="subtle">The browser preview, panel preview, and save all use these settings plus the scale controls above. The Pi performs the final resampling for consistent results across devices.</p>
         </div>
 
         <label class="enabled-check"><input id="uploadEnabled" type="checkbox" checked> Enabled in slideshow/library</label>
@@ -113,7 +113,7 @@
         <div class="preview-large-wrap">
           <canvas id="previewLarge" class="preview-large" width="512" height="512"></canvas>
         </div>
-        <p class="subtle" id="previewHelp">Grid lines show the 64×64 RGB matrix cells. Scale mode can fit the whole image, fill the panel, zoom further, or snap zoom and position to the source-pixel grid. Pixel snap can zoom out from Fit when that better preserves the full image.</p>
+        <p class="subtle" id="previewHelp">Grid lines show the 64×64 RGB matrix cells. Scale mode can fit the whole image, fill the panel, zoom further, or snap zoom and position to the source-pixel grid. The Pi performs the final resampling for panel preview and save.</p>
       </div>
     </div>
   </section>
