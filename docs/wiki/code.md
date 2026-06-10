@@ -141,6 +141,7 @@ Effects that calculate most or all pixels every frame can use the full-frame API
 - `frame.rgb_array()` for direct NumPy writes into the current frame
 
 The direct-buffer path is intended for advanced procedural effects such as plasma, fire, particle fields, noise, and simulation-style output. It avoids thousands of Python `set_pixel()` calls per frame.
+The included plasma code uses this render path.
 
 ## Code thumbnails
 
