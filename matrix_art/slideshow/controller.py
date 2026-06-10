@@ -36,6 +36,9 @@ class SlideshowController:
         self.wake_event = threading.Event()
         self.stop_event = threading.Event()
         self.last_shuffle_id: int | None = None
+        self.shuffle_bag: list[int] = []
+        self.shuffle_signature: tuple[int, ...] = ()
+        self.shuffle_history: list[int] = []
         self.thread = threading.Thread(target=self._run, name="matrix-art-slideshow", daemon=True)
         self.state.update(
             slideshow_enabled=bool(enabled),
@@ -92,8 +95,11 @@ class SlideshowController:
         self.wake_event.set()
 
     def set_shuffle(self, enabled: bool) -> None:
-        self.state.update(shuffle_enabled=bool(enabled), last_action="shuffle on" if enabled else "shuffle off")
-        self.wake_event.set()
+        with self.lock:
+            if bool(enabled) != bool(self.state.snapshot()["shuffle_enabled"]):
+                self._reset_shuffle_bag_locked()
+            self.state.update(shuffle_enabled=bool(enabled), last_action="shuffle on" if enabled else "shuffle off")
+            self.wake_event.set()
 
     def set_interval(self, seconds: float) -> None:
         value = max(1.0, min(3600.0, float(seconds)))
@@ -126,7 +132,7 @@ class SlideshowController:
                 artwork_id=row.id,
                 kind="code",
             )
-            self.last_shuffle_id = row.id
+            self._note_artwork_played_locked(row.id)
             return ShowResult(True, artwork_id=row.id, title=row.title)
 
         after_transition = None
@@ -145,20 +151,18 @@ class SlideshowController:
         else:
             image = png_bytes_to_image(frame_rows[0][0])
             self.display.show_image(image, artwork_id=row.id, title=row.title, after_transition=after_transition)
-        self.last_shuffle_id = row.id
+        self._note_artwork_played_locked(row.id)
         return ShowResult(True, artwork_id=row.id, title=row.title)
 
     def _choose_next_locked(self, *, forward: bool) -> ArtworkRow | None:
         rows = self.db.list_enabled_artwork(limit=5000)
         if not rows:
+            self._reset_shuffle_bag_locked()
             return None
         if self.state.snapshot()["shuffle_enabled"]:
-            if len(rows) == 1:
-                return rows[0]
-            candidates = [row for row in rows if row.id != self.last_shuffle_id]
-            if not candidates:
-                candidates = rows
-            return random.choice(candidates)
+            if forward:
+                return self._choose_shuffle_next_locked(rows)
+            return self._choose_shuffle_previous_locked(rows)
 
         current_id = self.state.snapshot()["current_artwork_id"]
         ids = [row.id for row in rows]
@@ -167,6 +171,67 @@ class SlideshowController:
             idx = (idx + (1 if forward else -1)) % len(rows)
             return rows[idx]
         return rows[0] if forward else rows[-1]
+
+    def _choose_shuffle_next_locked(self, rows: list[ArtworkRow]) -> ArtworkRow | None:
+        row_by_id = {row.id: row for row in rows}
+        self._refresh_shuffle_bag_locked(rows)
+        if not self.shuffle_bag:
+            return None
+        next_id = self.shuffle_bag.pop(0)
+        return row_by_id.get(next_id)
+
+    def _choose_shuffle_previous_locked(self, rows: list[ArtworkRow]) -> ArtworkRow | None:
+        row_by_id = {row.id: row for row in rows}
+        current_id = self.state.snapshot()["current_artwork_id"]
+
+        if current_id is not None and self.shuffle_history and self.shuffle_history[-1] == current_id:
+            self.shuffle_history.pop()
+
+        while self.shuffle_history:
+            previous_id = self.shuffle_history.pop()
+            row = row_by_id.get(previous_id)
+            if row is not None:
+                return row
+
+        return self._choose_shuffle_next_locked(rows)
+
+    def _refresh_shuffle_bag_locked(self, rows: list[ArtworkRow]) -> None:
+        signature = tuple(sorted(row.id for row in rows))
+        if self.shuffle_bag and self.shuffle_signature == signature:
+            # Keep only currently eligible IDs. This handles artwork being deleted
+            # or disabled without throwing away the current shuffled bag.
+            eligible = set(signature)
+            self.shuffle_bag = [artwork_id for artwork_id in self.shuffle_bag if artwork_id in eligible]
+            if self.shuffle_bag:
+                return
+
+        self.shuffle_signature = signature
+        self.shuffle_bag = list(signature)
+        random.shuffle(self.shuffle_bag)
+        self._avoid_shuffle_boundary_repeat_locked()
+
+    def _avoid_shuffle_boundary_repeat_locked(self) -> None:
+        if len(self.shuffle_bag) < 2 or self.last_shuffle_id is None:
+            return
+        if self.shuffle_bag[0] != self.last_shuffle_id:
+            return
+        for idx, artwork_id in enumerate(self.shuffle_bag[1:], start=1):
+            if artwork_id != self.last_shuffle_id:
+                self.shuffle_bag[0], self.shuffle_bag[idx] = self.shuffle_bag[idx], self.shuffle_bag[0]
+                return
+
+    def _note_artwork_played_locked(self, artwork_id: int) -> None:
+        self.last_shuffle_id = artwork_id
+        if artwork_id in self.shuffle_bag:
+            self.shuffle_bag = [existing_id for existing_id in self.shuffle_bag if existing_id != artwork_id]
+        if not self.shuffle_history or self.shuffle_history[-1] != artwork_id:
+            self.shuffle_history.append(artwork_id)
+            self.shuffle_history = self.shuffle_history[-200:]
+
+    def _reset_shuffle_bag_locked(self) -> None:
+        self.shuffle_bag = []
+        self.shuffle_signature = ()
+        self.shuffle_history = []
 
     def _run(self) -> None:
         # The scheduler never touches rgbmatrix directly. It only queues display
