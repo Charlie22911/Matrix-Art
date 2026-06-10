@@ -2,12 +2,6 @@
 
 The Upload page imports still images and animated GIFs from a browser, lets you crop/scale them, previews the 64×64 result, and saves the panel-ready result into SQLite.
 
-Route:
-
-```text
-/upload
-```
-
 ## Supported browser input
 
 The file picker accepts:
