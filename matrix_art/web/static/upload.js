@@ -629,6 +629,20 @@ function clearStillPreviewFrame() {
   stillPreviewImage = null;
 }
 
+function invalidateStillPreviewFrame() {
+  // Any transform or position change makes in-flight server previews stale.
+  // Incrementing the token prevents an older response from overwriting the
+  // immediate local preview during drag/pan gestures, which is especially
+  // noticeable on mobile Safari.
+  stillPreviewToken++;
+  clearStillPreviewFrame();
+}
+
+function invalidateGifPreviewFrames() {
+  gifRenderToken++;
+  clearGifPreviewFrames();
+}
+
 function scheduleStillPreviewRender(message = 'Updating still preview...') {
   if (fileKind !== 'still' || !sourceFile || !sourceImage) return;
   stillPreviewPendingText = message;
@@ -711,8 +725,8 @@ fileInput?.addEventListener('change', () => {
   stopGifLoop();
   clearTimeout(gifRenderTimer);
   cleanupObjectUrl();
-  clearGifPreviewFrames();
-  clearStillPreviewFrame();
+  invalidateGifPreviewFrames();
+  invalidateStillPreviewFrame();
   clearTimeout(stillPreviewTimer);
   sourceFile = null;
   sourceImage = null;
@@ -790,9 +804,11 @@ sourceCanvas?.addEventListener('pointermove', ev => {
   transform.x = -targetX * transform.scale;
   transform.y = -targetY * transform.scale;
   clampTransform();
-  if (fileKind === 'gif') clearGifPreviewFrames();
+  if (fileKind === 'gif') invalidateGifPreviewFrames();
+  if (fileKind === 'still') invalidateStillPreviewFrame();
   redrawAll();
   if (fileKind === 'gif') scheduleGifPreviewRender('Updating animated scale preview...');
+  if (fileKind === 'still') scheduleStillPreviewRender('Updating still scale preview...');
   ev.preventDefault();
 });
 
@@ -801,14 +817,15 @@ function endDrag(ev) {
   dragging = false;
   try { sourceCanvas.releasePointerCapture(ev.pointerId); } catch (_) {}
   if (fileKind === 'gif') scheduleGifPreviewRender('Updating animated scale preview...');
+  if (fileKind === 'still') scheduleStillPreviewRender('Updating still scale preview...');
 }
 sourceCanvas?.addEventListener('pointerup', endDrag);
 sourceCanvas?.addEventListener('pointercancel', endDrag);
 sourceCanvas?.addEventListener('pointerleave', endDrag);
 
 function transformChanged({clearGif = true, clearStill = true} = {}) {
-  if (fileKind === 'gif' && clearGif) clearGifPreviewFrames();
-  if (fileKind === 'still' && clearStill) clearStillPreviewFrame();
+  if (fileKind === 'gif' && clearGif) invalidateGifPreviewFrames();
+  if (fileKind === 'still' && clearStill) invalidateStillPreviewFrame();
   redrawAll();
   if (fileKind === 'gif') scheduleGifPreviewRender('Updating animated preview...');
   if (fileKind === 'still') scheduleStillPreviewRender('Updating server-rendered preview...');
@@ -840,7 +857,7 @@ integerZoomBtn?.addEventListener('click', () => {
 [gifMaxFrames, gifDefaultDuration, gifMinDuration, gifMaxDuration].forEach(el => {
   el?.addEventListener('input', () => {
     if (fileKind === 'gif') {
-      clearGifPreviewFrames();
+      invalidateGifPreviewFrames();
       redrawAll();
       scheduleGifPreviewRender('Updating animated timing preview...');
     }
