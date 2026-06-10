@@ -106,4 +106,4 @@ Matrix-Art currently uses default values. The format is designed so slider contr
 - Keep imports simple.
 - Use Run Editor to test unsaved changes.
 - Use Save to store changes and regenerate the Library thumbnail.
-- Use Use Current Display as Thumbnail when startup frames are blank or unrepresentative.
+- Use Current Display as Thumbnail is useful when startup frames are blank or unrepresentative.
