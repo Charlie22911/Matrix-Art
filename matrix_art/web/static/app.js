@@ -420,3 +420,155 @@ document.querySelectorAll('.art-card').forEach(card => {
 });
 
 
+function withButtonBusy(button, task) {
+  if (!button) return task();
+  const wasDisabled = button.disabled;
+  button.disabled = true;
+  return Promise.resolve()
+    .then(task)
+    .finally(() => { button.disabled = wasDisabled; });
+}
+
+function attachLibraryControls() {
+  document.getElementById('clearBtn')?.addEventListener('click', async ev => {
+    const button = ev.currentTarget;
+    await withButtonBusy(button, async () => {
+      try {
+        await postJson('/api/display/clear');
+        setStatus('Panel cleared.');
+        setTimeout(() => refreshStatus(true), 120);
+      } catch (err) {
+        setStatus(`Clear failed: ${err.message}`);
+      }
+    });
+  });
+
+  document.getElementById('displayToggleBtn')?.addEventListener('click', async ev => {
+    const button = ev.currentTarget;
+    const enabled = button.dataset.enabled !== '1';
+    await withButtonBusy(button, async () => {
+      try {
+        const body = await postJson('/api/display/enabled', {enabled});
+        button.dataset.enabled = body.display_enabled ? '1' : '0';
+        setStatus(`Display ${body.display_enabled ? 'enabled' : 'disabled'}.`);
+        refreshStatus(true);
+      } catch (err) {
+        setStatus(`Display toggle failed: ${err.message}`);
+      }
+    });
+  });
+
+  let brightnessTimer = null;
+  const brightnessSlider = document.getElementById('brightnessSlider');
+  async function sendBrightness() {
+    if (!brightnessSlider) return;
+    const value = Number(brightnessSlider.value || 0);
+    try {
+      const body = await postJson('/api/display/brightness', {brightness: value});
+      const brightnessValue = document.getElementById('brightnessValue');
+      if (brightnessValue) brightnessValue.textContent = body.brightness;
+      setStatus(`Brightness ${body.brightness}.`);
+    } catch (err) {
+      setStatus(`Brightness update failed: ${err.message}`);
+    }
+  }
+  brightnessSlider?.addEventListener('input', () => {
+    const brightnessValue = document.getElementById('brightnessValue');
+    if (brightnessValue) brightnessValue.textContent = brightnessSlider.value;
+    clearTimeout(brightnessTimer);
+    brightnessTimer = setTimeout(sendBrightness, 180);
+  });
+  brightnessSlider?.addEventListener('change', () => {
+    clearTimeout(brightnessTimer);
+    sendBrightness();
+  });
+
+  document.getElementById('slideshowToggleBtn')?.addEventListener('click', async ev => {
+    const button = ev.currentTarget;
+    const enabled = button.dataset.enabled !== '1';
+    await withButtonBusy(button, async () => {
+      try {
+        const body = await postJson('/api/slideshow', {enabled});
+        updateSlideshowUi(body);
+        setStatus(body.slideshow_enabled ? 'Slideshow started.' : 'Slideshow paused.');
+        refreshStatus(true);
+      } catch (err) {
+        setStatus(`Slideshow update failed: ${err.message}`);
+      }
+    });
+  });
+
+  document.getElementById('nextBtn')?.addEventListener('click', async ev => {
+    const button = ev.currentTarget;
+    await withButtonBusy(button, async () => {
+      try {
+        const body = await postJson('/api/slideshow/next');
+        setStatus(`Next: ${body.title}`);
+        setTimeout(() => refreshStatus(true), 120);
+      } catch (err) {
+        setStatus(`Next failed: ${err.message}`);
+      }
+    });
+  });
+
+  document.getElementById('prevBtn')?.addEventListener('click', async ev => {
+    const button = ev.currentTarget;
+    await withButtonBusy(button, async () => {
+      try {
+        const body = await postJson('/api/slideshow/previous');
+        setStatus(`Previous: ${body.title}`);
+        setTimeout(() => refreshStatus(true), 120);
+      } catch (err) {
+        setStatus(`Previous failed: ${err.message}`);
+      }
+    });
+  });
+
+  document.getElementById('shuffleBox')?.addEventListener('change', async ev => {
+    const checkbox = ev.currentTarget;
+    try {
+      const body = await postJson('/api/slideshow', {shuffle: checkbox.checked});
+      updateSlideshowUi(body);
+      setStatus(body.shuffle_enabled ? 'Shuffle enabled.' : 'Shuffle disabled.');
+    } catch (err) {
+      checkbox.checked = !checkbox.checked;
+      setStatus(`Shuffle update failed: ${err.message}`);
+    }
+  });
+
+  document.getElementById('intervalInput')?.addEventListener('change', async ev => {
+    const input = ev.currentTarget;
+    try {
+      const interval = Math.max(1, Math.min(3600, Number(input.value || 10)));
+      const body = await postJson('/api/slideshow', {interval_seconds: interval});
+      updateSlideshowUi(body);
+      setStatus(`Slideshow interval ${body.interval_seconds}s.`);
+    } catch (err) {
+      setStatus(`Interval update failed: ${err.message}`);
+    }
+  });
+
+  document.getElementById('transitionEnabledBox')?.addEventListener('change', ev => {
+    sendTransitionSettings({enabled: ev.currentTarget.checked}).catch(err => setStatus(`Transition update failed: ${err.message}`));
+  });
+  document.getElementById('transitionEffectSelect')?.addEventListener('change', ev => {
+    sendTransitionSettings({effect: ev.currentTarget.value}).catch(err => setStatus(`Transition update failed: ${err.message}`));
+  });
+  document.getElementById('transitionDurationInput')?.addEventListener('change', ev => {
+    sendTransitionSettings({duration_ms: Number(ev.currentTarget.value || 0)}).catch(err => setStatus(`Transition update failed: ${err.message}`));
+  });
+  document.getElementById('transitionFpsInput')?.addEventListener('change', ev => {
+    sendTransitionSettings({fps: Number(ev.currentTarget.value || 30)}).catch(err => setStatus(`Transition update failed: ${err.message}`));
+  });
+  document.getElementById('transitionSmoothingBox')?.addEventListener('change', ev => {
+    sendTransitionSettings({smoothing: ev.currentTarget.checked}).catch(err => setStatus(`Transition update failed: ${err.message}`));
+  });
+  document.getElementById('transitionSmoothingStrengthInput')?.addEventListener('change', ev => {
+    sendTransitionSettings({smoothing_strength: Number(ev.currentTarget.value || 0)}).catch(err => setStatus(`Transition update failed: ${err.message}`));
+  });
+}
+
+attachLibraryControls();
+refreshStatus(true);
+setInterval(() => refreshStatus(false), 2000);
+

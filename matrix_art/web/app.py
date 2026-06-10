@@ -554,7 +554,14 @@ def create_app(services: MatrixArtServices) -> Flask:
         is_trash = folder_norm.lower() == "trash"
         rows = services.db.list_artwork(q=q, enabled=enabled, folder=folder, limit=800, offset=0)
         folders = services.db.list_folders()
-        folder_summary = services.db.folder_enabled_summary(folder)
+        if is_trash:
+            folder_summary = {
+                "total": len(rows),
+                "enabled": 0,
+                "disabled": len(rows),
+            }
+        else:
+            folder_summary = services.db.folder_enabled_summary(folder)
         return render_template(
             "index.html",
             state=services.state.snapshot(),
