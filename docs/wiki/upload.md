@@ -12,7 +12,7 @@ The file picker accepts:
 - BMP
 - animated GIF
 
-Still images are rendered in the browser to an exact 64×64 PNG preview. That exact preview is saved to the library.
+Still images are previewed in the browser and also processed by the Pi before panel preview or save. This keeps resampling behavior consistent across desktop and mobile browsers. The original still image file is not stored.
 
 GIFs are processed by the Pi using the same scale, position, resampling, background, and animation settings shown in the browser preview. The original GIF file is not stored.
 
@@ -58,7 +58,7 @@ The default mode is controlled by `config.toml` under `[image] scale_mode`. Olde
 - Bicubic: smoother scaling with more interpolation.
 - Bilinear: lighter interpolation.
 
-For pixel art, use Nearest/pixel.
+For pixel art, use Nearest/pixel. Panel preview and save are processed by the Pi, so resampling does not depend on the phone, tablet, or desktop browser canvas implementation.
 
 ### Background
 
@@ -101,7 +101,7 @@ On touch devices, drag with a finger. On PC, drag with the mouse.
 
 The preview area shows:
 
-- the exact 64×64 browser preview
+- the 64×64 processed preview
 - a large integer-scaled grid preview
 
 The grid overlay represents the physical LED cells. It is drawn at integer scale to avoid interpolation artifacts. Pixel snap uses this same idea for uploads by keeping the source-image pixel grid aligned to the matrix pixel grid.
