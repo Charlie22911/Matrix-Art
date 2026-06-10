@@ -24,17 +24,13 @@ Symptoms of weak or unstable power can include:
 - Wi-Fi instability
 - spontaneous reboot
 
-Check throttling/undervoltage status:
+To check throttling/undervoltage status, run the following command:
 
 ```bash
 vcgencmd get_throttled
 ```
 
-Ideal result:
-
-```text
-throttled=0x0
-```
+A result of `throttled=0x0` means that the Raspberry Pi has not throttled due to undervoltage or thermal limits.
 
 ## Matrix Bonnet notes
 
@@ -45,7 +41,9 @@ gpio_mapping = "adafruit-hat-pwm"
 hardware_pulse = true
 ```
 
-That path uses PWM timing hardware and conflicts with onboard audio. When you select hardware PWM during install, the installer turns onboard audio off with `dtparam=audio=off` in the existing Raspberry Pi `config.txt` and keeps `snd_bcm2835` from loading.
+That path uses PWM timing hardware and conflicts with onboard audio. When you select hardware PWM during install, the installer turns onboard audio off with `dtparam=audio=off` in the existing Raspberry Pi `config.txt` and keeps `snd_bcm2835` from loading. 
+
+More info can be found at `https://learn.adafruit.com/adafruit-rgb-matrix-bonnet-for-raspberry-pi/matrix-setup`
 
 ## Panel settings
 
