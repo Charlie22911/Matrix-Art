@@ -42,7 +42,7 @@ Running Code pauses slideshow.
 
 ## Help
 
-Opens the Code Help page. It includes the effect API reference, beginner examples, common Python patterns, testing notes, and advanced runtime details.
+Opens the Code Help page. It includes the effect API reference, beginner examples, common Python patterns, testing notes, and advanced render paths such as direct RGB buffer rendering with NumPy.
 
 ## Back to Library
 
@@ -127,6 +127,20 @@ Moves the linked Library Code item to Trash. From Trash it can be recovered or p
 Built-in examples are stored in SQLite on startup. They can be edited in place. Once edited, they are marked customized so startup refresh does not overwrite customized code.
 
 Save as copy preserves the built-in version and creates a separate custom version.
+
+
+## Advanced render paths
+
+Simple effects should use the drawing helpers such as `frame.set_pixel()`, `frame.line()`, `frame.rect()`, and `frame.circle()`.
+
+Effects that calculate most or all pixels every frame can use the full-frame APIs documented in Code Help:
+
+- `frame.set_rgb_bytes(data)` for packed RGB byte output
+- `frame.set_rgb_array(array)` for finished NumPy-style RGB arrays
+- `frame.rgb_buffer()` for direct byte-level writes into the current frame
+- `frame.rgb_array()` for direct NumPy writes into the current frame
+
+The direct-buffer path is intended for advanced procedural effects such as plasma, fire, particle fields, noise, and simulation-style output. It avoids thousands of Python `set_pixel()` calls per frame.
 
 ## Code thumbnails
 

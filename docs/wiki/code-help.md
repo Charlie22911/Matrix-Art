@@ -133,6 +133,11 @@ frame.fill(r, g, b)
 frame.clear()
 frame.set_pixel(x, y, r, g, b)
 frame.get_pixel(x, y)
+frame.set_rgb_bytes(data)
+frame.set_rgb_array(array)
+frame.rgb_buffer()
+frame.mutable_rgb()
+frame.rgb_array()
 frame.fade(amount)
 frame.line(x0, y0, x1, y1, r, g, b)
 frame.rect(x, y, w, h, r, g, b, fill=False)
@@ -175,6 +180,226 @@ def render(ctx, t, dt, frame, params):
     frame.fill(60, 20, 0)
     frame.fade(0.5)
 ```
+
+
+## Fast full-frame RGB paths
+
+Matrix-Art supports three levels of frame rendering. They all produce the same final 64×64 RGB frame, but they have different tradeoffs.
+
+| Path | Best for | Copies | Difficulty |
+|---|---|---:|---|
+| Drawing helpers | learning, shapes, small animations | many small writes | easiest |
+| `set_rgb_bytes()` / `set_rgb_array()` | effects that build a complete output buffer | one full-frame copy | moderate |
+| `rgb_buffer()` / `rgb_array()` | advanced NumPy/procedural effects | direct write into current frame | advanced |
+
+Use the drawing helpers for simple effects and tutorials. Use the direct-buffer path when an effect calculates most or all pixels every frame.
+
+### Coordinate and byte layout
+
+A 64×64 RGB frame contains exactly 12,288 bytes:
+
+```text
+64 × 64 × 3 = 12,288
+```
+
+All full-frame APIs use row-major RGB order:
+
+```text
+(0,0) R, (0,0) G, (0,0) B,
+(1,0) R, (1,0) G, (1,0) B,
+...
+(63,0) R, (63,0) G, (63,0) B,
+(0,1) R, (0,1) G, (0,1) B,
+...
+```
+
+The byte index for pixel `(x, y)` is:
+
+```python
+i = (y * ctx.width + x) * 3
+```
+
+### Replace the whole frame with bytes
+
+`frame.set_rgb_bytes(data)` replaces the whole frame from packed RGB bytes. `data` must contain exactly `ctx.width * ctx.height * 3` bytes.
+
+```python
+NAME = "Byte Buffer Gradient"
+DEFAULT_FPS = 30
+
+
+def render(ctx, t, dt, frame, params):
+    data = bytearray(ctx.width * ctx.height * 3)
+
+    for y in range(ctx.height):
+        for x in range(ctx.width):
+            i = (y * ctx.width + x) * 3
+            data[i] = x * 4       # red
+            data[i + 1] = y * 4   # green
+            data[i + 2] = 40      # blue
+
+    frame.set_rgb_bytes(data)
+```
+
+This path is useful when pure Python code builds a complete frame in a `bytearray`.
+
+### Replace the whole frame with an array
+
+`frame.set_rgb_array(array)` replaces the whole frame from a NumPy-style array. The array must have this shape and dtype:
+
+```text
+shape = (64, 64, 3)
+dtype = uint8
+```
+
+```python
+import numpy as np
+
+NAME = "Array Gradient"
+DEFAULT_FPS = 30
+
+
+def setup(ctx):
+    y, x = np.mgrid[0:ctx.height, 0:ctx.width]
+    return {"x": x, "y": y}
+
+
+def render(ctx, t, dt, frame, params, state):
+    x = state["x"]
+    y = state["y"]
+
+    rgb = np.empty((ctx.height, ctx.width, 3), dtype=np.uint8)
+    rgb[:, :, 0] = (x * 4 + t * 80) % 256
+    rgb[:, :, 1] = (y * 4 + t * 50) % 256
+    rgb[:, :, 2] = 80
+
+    frame.set_rgb_array(rgb)
+```
+
+This path is good when an effect already produces a finished NumPy array somewhere else.
+
+## Direct writable buffer path
+
+The direct-buffer API exposes writable views into the current Matrix-Art frame. These views are valid only during the current `render()` call. Do not save them in `state`.
+
+```python
+frame.rgb_buffer()      # writable byte-level memoryview
+frame.mutable_rgb()     # alias for rgb_buffer()
+frame.rgb_array()       # writable NumPy view shaped (64, 64, 3)
+```
+
+### Direct byte buffer
+
+`frame.rgb_buffer()` returns a writable `memoryview` over the current frame bytes.
+
+```python
+NAME = "Direct Byte Gradient"
+DEFAULT_FPS = 30
+
+
+def render(ctx, t, dt, frame, params):
+    buf = frame.rgb_buffer()
+
+    for y in range(ctx.height):
+        for x in range(ctx.width):
+            i = (y * ctx.width + x) * 3
+            buf[i] = x * 4
+            buf[i + 1] = y * 4
+            buf[i + 2] = 80
+```
+
+This avoids the final full-frame copy made by `set_rgb_bytes()`. It still uses Python loops, so it is mainly useful for byte-oriented code or for effects that write only part of the frame.
+
+### Direct NumPy frame view
+
+`frame.rgb_array()` returns a writable NumPy view of the current frame. It is the preferred path for advanced procedural effects that generate full frames with NumPy.
+
+```python
+import numpy as np
+
+NAME = "Direct NumPy Gradient"
+DEFAULT_FPS = 60
+
+
+def setup(ctx):
+    y, x = np.mgrid[0:ctx.height, 0:ctx.width]
+    return {"x": x.astype(np.uint16), "y": y.astype(np.uint16)}
+
+
+def render(ctx, t, dt, frame, params, state):
+    rgb = frame.rgb_array()
+    x = state["x"]
+    y = state["y"]
+
+    rgb[:, :, 0] = (x * 4 + int(t * 80)) & 255
+    rgb[:, :, 1] = (y * 4 + int(t * 50)) & 255
+    rgb[:, :, 2] = 80
+```
+
+This writes directly into Matrix-Art's current frame buffer. It avoids thousands of `set_pixel()` calls and avoids the final copy required by `set_rgb_array()`.
+
+### NumPy must be installed in Matrix-Art's venv
+
+The Code runner uses Matrix-Art's virtual environment, not necessarily the same Python used by a login shell. If a Code effect says `ModuleNotFoundError: No module named 'numpy'`, check this interpreter:
+
+```bash
+./.venv/bin/python -c "import sys; print(sys.executable); import numpy; print(numpy.__version__, numpy.__file__)"
+```
+
+Install or refresh dependencies from the project folder:
+
+```bash
+./.venv/bin/python -m pip install -r requirements.txt
+sudo systemctl restart matrix-art.service
+```
+
+### Direct-buffer rules
+
+- `frame.rgb_array()` requires NumPy in the Matrix-Art venv.
+- `frame.rgb_array()` returns a `uint8` array shaped `(ctx.height, ctx.width, 3)`.
+- Write RGB values from `0` to `255`.
+- Do not store the returned array or memoryview in `state`.
+- Do cache coordinate grids, palettes, lookup tables, and other reusable NumPy arrays in `state`.
+- For best speed, create coordinate grids in `setup()` and reuse them in `render()`.
+- Avoid per-pixel Python loops in the NumPy path.
+- Use lookup tables or palettes when they remove repeated per-pixel math.
+
+### Good direct-buffer pattern
+
+```python
+import numpy as np
+
+NAME = "Direct Palette Example"
+DEFAULT_FPS = 60
+
+
+def make_palette():
+    p = np.empty((256, 3), dtype=np.uint8)
+    for i in range(256):
+        p[i] = (i, 255 - i, (i * 2) & 255)
+    return p
+
+
+def setup(ctx):
+    y, x = np.mgrid[0:ctx.height, 0:ctx.width]
+    return {
+        "x": x.astype(np.float32),
+        "y": y.astype(np.float32),
+        "palette": make_palette(),
+    }
+
+
+def render(ctx, t, dt, frame, params, state):
+    rgb = frame.rgb_array()
+    x = state["x"]
+    y = state["y"]
+    palette = state["palette"]
+
+    index = ((np.sin(x * 0.15 + t * 2.0) + np.sin(y * 0.12 - t * 1.6) + 2.0) * 63.75).astype(np.uint8)
+    rgb[:, :, :] = palette[index]
+```
+
+Use this pattern for plasma, fire, noise, vector fields, simulation output, and other effects that naturally produce every pixel each frame.
 
 ## Beginner examples
 

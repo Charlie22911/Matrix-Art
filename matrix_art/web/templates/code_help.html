@@ -79,6 +79,8 @@ def render(ctx, t, dt, frame, params, state):
         <li><code>frame.clear()</code>: fill the frame with black.</li>
         <li><code>frame.set_pixel(x, y, r, g, b)</code>: draw one pixel.</li>
         <li><code>frame.get_pixel(x, y)</code>: read one pixel as <code>(r, g, b)</code>.</li>
+        <li><code>frame.set_rgb_bytes(data)</code>: replace the whole frame from packed row-major RGB bytes.</li>
+        <li><code>frame.set_rgb_array(array)</code>: replace the whole frame from a NumPy-style <code>64×64×3</code> <code>uint8</code> array.</li>
         <li><code>frame.fade(amount)</code>: multiply current frame brightness by <code>amount</code>.</li>
         <li><code>frame.line(x0, y0, x1, y1, r, g, b)</code>: draw a line.</li>
         <li><code>frame.rect(x, y, w, h, r, g, b, fill=False)</code>: draw a rectangle.</li>
@@ -89,6 +91,116 @@ def render(ctx, t, dt, frame, params, state):
     frame.line(0, 0, 63, 63, 255, 255, 255)
     frame.rect(6, 6, 20, 14, 255, 80, 0, fill=False)
     frame.circle(46, 32, 10, 80, 180, 255, fill=True)</pre>
+    </section>
+
+
+    <section class="card panel">
+      <h2>Fast full-frame RGB paths</h2>
+      <p>Matrix-Art supports three levels of frame rendering. Simple effects should use drawing helpers. Full-frame effects can replace the whole frame. Advanced NumPy effects can write directly into the current frame buffer.</p>
+      <table class="simple-table">
+        <thead><tr><th>Path</th><th>Best for</th><th>Difficulty</th></tr></thead>
+        <tbody>
+          <tr><td>Drawing helpers</td><td>Learning, shapes, small animations</td><td>Easiest</td></tr>
+          <tr><td><code>set_rgb_bytes()</code> / <code>set_rgb_array()</code></td><td>Effects that build a completed output buffer</td><td>Moderate</td></tr>
+          <tr><td><code>rgb_buffer()</code> / <code>rgb_array()</code></td><td>Advanced procedural effects and NumPy output</td><td>Advanced</td></tr>
+        </tbody>
+      </table>
+      <ul class="help-list">
+        <li>A 64×64 RGB frame is exactly <code>12,288</code> bytes.</li>
+        <li>Color order is RGB.</li>
+        <li>Pixel order is left-to-right, top-to-bottom.</li>
+        <li>The byte index for pixel <code>(x, y)</code> is <code>(y * ctx.width + x) * 3</code>.</li>
+      </ul>
+      <pre class="code-preview">def render(ctx, t, dt, frame, params):
+    data = bytearray(ctx.width * ctx.height * 3)
+
+    for y in range(ctx.height):
+        for x in range(ctx.width):
+            i = (y * ctx.width + x) * 3
+            data[i] = x * 4
+            data[i + 1] = y * 4
+            data[i + 2] = 40
+
+    frame.set_rgb_bytes(data)</pre>
+    </section>
+
+    <section class="card panel">
+      <h2>Direct writable buffer path</h2>
+      <p>The direct-buffer API exposes writable views into the current frame. These views are valid only during the current <code>render()</code> call, so do not store them in <code>state</code>.</p>
+      <ul class="help-list">
+        <li><code>frame.rgb_buffer()</code>: writable byte-level <code>memoryview</code>.</li>
+        <li><code>frame.mutable_rgb()</code>: alias for <code>rgb_buffer()</code>.</li>
+        <li><code>frame.rgb_array()</code>: writable NumPy view shaped <code>(64, 64, 3)</code> with dtype <code>uint8</code>.</li>
+      </ul>
+      <pre class="code-preview">def render(ctx, t, dt, frame, params):
+    buf = frame.rgb_buffer()
+
+    for y in range(ctx.height):
+        for x in range(ctx.width):
+            i = (y * ctx.width + x) * 3
+            buf[i] = x * 4
+            buf[i + 1] = y * 4
+            buf[i + 2] = 80</pre>
+      <p>For advanced NumPy effects, <code>rgb_array()</code> is the fastest path because it writes directly into Matrix-Art's current frame buffer.</p>
+      <pre class="code-preview">import numpy as np
+
+NAME = "Direct NumPy Gradient"
+DEFAULT_FPS = 60
+
+
+def setup(ctx):
+    y, x = np.mgrid[0:ctx.height, 0:ctx.width]
+    return {"x": x.astype(np.uint16), "y": y.astype(np.uint16)}
+
+
+def render(ctx, t, dt, frame, params, state):
+    rgb = frame.rgb_array()
+    x = state["x"]
+    y = state["y"]
+
+    rgb[:, :, 0] = (x * 4 + int(t * 80)) & 255
+    rgb[:, :, 1] = (y * 4 + int(t * 50)) & 255
+    rgb[:, :, 2] = 80</pre>
+      <p>Good direct-buffer effects cache coordinate grids, palettes, and lookup tables in <code>state</code>, then write the final RGB values into <code>frame.rgb_array()</code> each frame.</p>
+      <pre class="code-preview">import numpy as np
+
+NAME = "Direct Palette Example"
+DEFAULT_FPS = 60
+
+
+def make_palette():
+    p = np.empty((256, 3), dtype=np.uint8)
+    for i in range(256):
+        p[i] = (i, 255 - i, (i * 2) & 255)
+    return p
+
+
+def setup(ctx):
+    y, x = np.mgrid[0:ctx.height, 0:ctx.width]
+    return {
+        "x": x.astype(np.float32),
+        "y": y.astype(np.float32),
+        "palette": make_palette(),
+    }
+
+
+def render(ctx, t, dt, frame, params, state):
+    rgb = frame.rgb_array()
+    x = state["x"]
+    y = state["y"]
+    palette = state["palette"]
+
+    index = ((np.sin(x * 0.15 + t * 2.0) + np.sin(y * 0.12 - t * 1.6) + 2.0) * 63.75).astype(np.uint8)
+    rgb[:, :, :] = palette[index]</pre>
+    </section>
+
+    <section class="card panel">
+      <h2>NumPy environment check</h2>
+      <p>The Code runner uses Matrix-Art's virtual environment. NumPy must be installed there, even if it is available in another shell Python.</p>
+      <pre class="code-preview">./.venv/bin/python -c "import sys; print(sys.executable); import numpy; print(numpy.__version__, numpy.__file__)"</pre>
+      <p>From the project folder, install or refresh dependencies with:</p>
+      <pre class="code-preview">./.venv/bin/python -m pip install -r requirements.txt
+sudo systemctl restart matrix-art.service</pre>
     </section>
 
     <section class="card panel">

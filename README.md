@@ -21,7 +21,7 @@ Other Raspberry Pi and HUB75 combinations may work, but the installer defaults a
 - Browser pixel-art editor with live matrix preview
 - SQLite-backed library with folders, Trash, recovery, permanent delete, and bulk actions
 - Slideshow playback with shuffled-bag rotation, interval control, transitions, and transition smoothing
-- Python Code effects with built-in examples and editable custom effects
+- Python Code effects with built-in examples, editable custom effects, and advanced direct-buffer rendering
 - Optional Settings PIN lock with config-file recovery
 - Settings-page database backup and restore, with the Settings PIN excluded from backups
 - Wi-Fi client mode, hotspot mode, and hotspot fallback when saved Wi-Fi is unavailable
@@ -81,7 +81,9 @@ If a non-default port was selected:
 http://<panel-ip>:<port>/
 ```
 
-See [Installation](docs/wiki/installation.md) for ZIP install, copy-from-another-computer install, service modes, driver maintenance, and non-interactive install examples.
+See [Installation](docs/wiki/installation.md) for service modes, driver maintenance, and non-interactive install examples.
+
+The installer creates a project virtual environment and installs Matrix-Art dependencies, including NumPy for advanced Code effects that use the direct RGB buffer API.
 
 ## Common commands
 

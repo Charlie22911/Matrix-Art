@@ -59,6 +59,90 @@ class FrameBuffer:
         i = (y * self.width + x) * 3
         return (self.data[i], self.data[i + 1], self.data[i + 2])
 
+
+    def rgb_buffer(self) -> memoryview:
+        """Return a writable byte-level view of the current frame.
+
+        The view is exactly ``width * height * 3`` bytes in row-major RGB
+        order. It is valid for the current render call only. Effects should
+        not keep it in ``state`` because each frame gets a fresh buffer.
+        """
+        return memoryview(self.data)
+
+    def mutable_rgb(self) -> memoryview:
+        """Alias for ``rgb_buffer()`` for code that reads more naturally."""
+        return self.rgb_buffer()
+
+    def rgb_array(self):
+        """Return a writable NumPy view shaped ``(height, width, 3)``.
+
+        This is the fastest advanced path for NumPy effects because writes go
+        directly into the frame's current RGB byte buffer without an extra
+        copy. NumPy is optional; this method raises a clear error when NumPy
+        is not installed in the Matrix-Art environment.
+        """
+        try:
+            import numpy as _np
+        except Exception as exc:
+            raise RuntimeError("frame.rgb_array() requires NumPy to be installed") from exc
+        return _np.frombuffer(self.data, dtype=_np.uint8).reshape((self.height, self.width, 3))
+
+    def set_rgb_bytes(self, data: bytes | bytearray | memoryview) -> None:
+        """Replace the whole frame from packed RGB bytes.
+
+        ``data`` must contain exactly ``width * height * 3`` bytes in
+        row-major RGB order: red, green, blue for pixel (0, 0), then pixel
+        (1, 0), continuing left-to-right and top-to-bottom. This is the
+        fastest safe path for effects that generate an entire frame at once.
+        """
+        expected = self.width * self.height * 3
+        try:
+            view = memoryview(data)
+        except TypeError as exc:
+            raise TypeError("frame.set_rgb_bytes() expects bytes-like data") from exc
+
+        if view.ndim != 1:
+            try:
+                view = view.cast("B")
+            except TypeError as exc:
+                raise ValueError("frame.set_rgb_bytes() expects a flat bytes-like buffer") from exc
+        elif view.format not in ("B", "b", "c"):
+            try:
+                view = view.cast("B")
+            except TypeError as exc:
+                raise ValueError("frame.set_rgb_bytes() expects a byte-sized buffer") from exc
+
+        if len(view) != expected:
+            raise ValueError(
+                f"frame.set_rgb_bytes() expected {expected} bytes for "
+                f"{self.width}x{self.height} RGB, got {len(view)}"
+            )
+
+        self.data[:] = view.tobytes()
+
+    def set_rgb_array(self, array: Any) -> None:
+        """Replace the whole frame from a 64x64x3 uint8-style array.
+
+        This supports NumPy arrays without making NumPy a required dependency.
+        The array must have shape ``(height, width, 3)`` and dtype ``uint8``.
+        """
+        shape = getattr(array, "shape", None)
+        dtype = getattr(array, "dtype", None)
+        expected_shape = (self.height, self.width, 3)
+        if tuple(shape or ()) != expected_shape:
+            raise ValueError(
+                f"frame.set_rgb_array() expected shape {expected_shape}, got {shape!r}"
+            )
+        if str(dtype) != "uint8":
+            raise ValueError(f"frame.set_rgb_array() expected dtype uint8, got {dtype!r}")
+        try:
+            raw = array.tobytes(order="C")
+        except TypeError:
+            raw = array.tobytes()
+        except AttributeError as exc:
+            raise TypeError("frame.set_rgb_array() expects an array with tobytes()") from exc
+        self.set_rgb_bytes(raw)
+
     def fade(self, amount: float) -> None:
         factor = max(0.0, min(1.0, float(amount)))
         for i, value in enumerate(self.data):

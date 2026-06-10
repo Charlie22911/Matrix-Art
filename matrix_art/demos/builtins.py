@@ -3,33 +3,190 @@ from __future__ import annotations
 BUILTIN_DEMOS = [
     {
         "slug": 'rgb-plasma',
-        "title": 'RGB Plasma',
-        "description": 'Sine-wave color plasma. A classic demoscene starter effect.',
-        "default_fps": 30,
+        "title": 'Direct Buffer Plasma Test',
+        "description": 'High-speed NumPy plasma using the direct writable frame buffer path.',
+        "default_fps": 60,
         "code": r'''
 import math
+import random
+import numpy as np
 
-NAME = "RGB Plasma"
-DEFAULT_FPS = 30
+NAME = "Direct Buffer Plasma Test"
+DEFAULT_FPS = 60
+
 PARAMS = {
     "speed": {"type": "float", "default": 1.0, "min": 0.1, "max": 4.0, "step": 0.1},
-    "scale": {"type": "float", "default": 0.18, "min": 0.03, "max": 0.5, "step": 0.01},
+    "scale": {"type": "float", "default": 0.135, "min": 0.04, "max": 0.40, "step": 0.005},
+    "warp": {"type": "float", "default": 2, "min": 0.0, "max": 2.0, "step": 0.05},
+    "contrast": {"type": "float", "default": 1.25, "min": 0.0, "max": 1.0, "step": 0.05},
+    "brightness": {"type": "float", "default": 1, "min": 0.2, "max": 1.5, "step": 0.05},
+
+    # 0 = RGB plasma
+    # 1 = hot neon
+    # 2 = ocean electric
+    # 3 = acid candy
+    # 4 = firestorm
+    "palette": {"type": "int", "default": 0, "min": 0, "max": 4, "step": 1},
 }
 
-def render(ctx, t, dt, frame, params):
+
+def smoothstep(a, b, x):
+    if x <= a:
+        return 0.0
+    if x >= b:
+        return 1.0
+    t = (x - a) / (b - a)
+    return t * t * (3.0 - 2.0 * t)
+
+
+def clamp_byte(v):
+    if v <= 0:
+        return 0
+    if v >= 255:
+        return 255
+    return int(v)
+
+
+def make_base_palette(style):
+    palette = np.empty((256, 3), dtype=np.uint8)
+
+    for i in range(256):
+        t = i / 255.0
+
+        if style == 1:
+            r = 255 * smoothstep(0.05, 0.55, t)
+            g = 255 * smoothstep(0.35, 0.90, t)
+            b = 80 * (1.0 - smoothstep(0.10, 0.70, t)) + 255 * smoothstep(0.86, 1.0, t)
+
+        elif style == 2:
+            r = 40 * smoothstep(0.55, 1.0, t)
+            g = 255 * smoothstep(0.10, 0.86, t)
+            b = 110 + 145 * (1.0 - smoothstep(0.72, 1.0, t))
+
+        elif style == 3:
+            a = t * math.tau
+            r = (math.sin(a * 1.0 + 0.0) + 1.0) * 127.5
+            g = (math.sin(a * 1.7 + 1.4) + 1.0) * 127.5
+            b = (math.sin(a * 2.3 + 3.0) + 1.0) * 127.5
+
+        elif style == 4:
+            r = 255 * smoothstep(0.00, 0.45, t)
+            g = 220 * smoothstep(0.30, 0.78, t)
+            b = 55 * smoothstep(0.75, 1.00, t)
+
+        else:
+            a = t * math.tau
+            r = (math.sin(a + 0.0) + 1.0) * 127.5
+            g = (math.sin(a + 2.1) + 1.0) * 127.5
+            b = (math.sin(a + 4.2) + 1.0) * 127.5
+
+        palette[i, 0] = clamp_byte(r)
+        palette[i, 1] = clamp_byte(g)
+        palette[i, 2] = clamp_byte(b)
+
+    return palette
+
+
+def make_lit_palette(style):
+    base = make_base_palette(style).astype(np.uint16)
+    lut = np.empty((256 * 256, 3), dtype=np.uint8)
+
+    for level in range(256):
+        start = level * 256
+        lut[start:start + 256, :] = ((base * level) // 255).astype(np.uint8)
+
+    return lut
+
+
+def ensure_palette(state, style):
+    style = max(0, min(4, int(style)))
+
+    if state.get("palette_style") != style:
+        state["palette_style"] = style
+        state["palette_lut"] = make_lit_palette(style)
+
+    return state["palette_lut"]
+
+
+def setup(ctx):
+    y, x = np.mgrid[0:ctx.height, 0:ctx.width]
+    x = x.astype(np.float32)
+    y = y.astype(np.float32)
+
+    cx = x - (ctx.width - 1) * 0.5
+    cy = y - (ctx.height - 1) * 0.5
+
+    radius = np.sqrt(cx * cx + cy * cy).astype(np.float32)
+    angle = np.arctan2(cy, cx).astype(np.float32)
+
+    return {
+        "x": x,
+        "y": y,
+        "radius": radius,
+        "angle": angle,
+
+        "time": random.uniform(0.0, 1000.0),
+        "palette_style": None,
+        "palette_lut": None,
+    }
+
+
+def render(ctx, t, dt, frame, params, state):
+    # Hard requirement for this test. No fallback.
+    rgb = frame.rgb_array()
+
     speed = float(params.get("speed", 1.0))
-    scale = float(params.get("scale", 0.18))
-    for y in range(ctx.height):
-        for x in range(ctx.width):
-            v = (
-                math.sin(x * scale + t * speed) +
-                math.sin(y * scale + t * speed * 1.3) +
-                math.sin((x + y) * scale + t * speed * 0.7)
-            )
-            r = int((math.sin(v + t * 0.9) + 1.0) * 127.5)
-            g = int((math.sin(v + t * 1.1 + 2.1) + 1.0) * 127.5)
-            b = int((math.sin(v + t * 1.3 + 4.2) + 1.0) * 127.5)
-            frame.set_pixel(x, y, r, g, b)
+    scale = float(params.get("scale", 0.135))
+    warp = float(params.get("warp", 1.0))
+    contrast = float(params.get("contrast", 0.80))
+    brightness_gain = float(params.get("brightness", 0.95))
+    palette_style = int(params.get("palette", 0))
+
+    state["time"] += dt * speed
+    tt = state["time"]
+
+    x = state["x"]
+    y = state["y"]
+    radius = state["radius"]
+    angle = state["angle"]
+
+    lut = ensure_palette(state, palette_style)
+
+    # Evolving coordinate warp.
+    wx = np.sin(y * 0.085 + tt * 1.41) * (2.0 + 3.0 * warp)
+    wy = np.cos(x * 0.075 - tt * 1.23) * (2.0 + 3.0 * warp)
+
+    xx = x * scale + wx * 0.16
+    yy = y * scale + wy * 0.16
+    rr = radius * scale
+
+    # Plasma field.
+    v = (
+        np.sin(xx * 1.25 + tt * 1.70) +
+        np.sin(yy * 1.15 - tt * 1.30) +
+        np.sin((xx + yy) * 0.85 + tt * 0.90) +
+        np.sin(rr * 1.45 - tt * 1.10) +
+        np.sin(angle * 3.0 + rr * 0.75 + tt * 0.75) * 0.75
+    )
+
+    ripple = np.sin((x * 0.17 - y * 0.11) + tt * 2.40)
+    cloud = np.sin(v * 0.65 + ripple * 0.70 + tt * 0.35)
+
+    color_index = ((np.sin(v * 0.88 + tt * 0.42) + 1.0) * 127.5 + ripple * 24.0)
+    color_index = color_index.astype(np.uint16) & 255
+
+    shadow = (cloud + 1.0) * 0.5
+    shadow = shadow * shadow * (3.0 - 2.0 * shadow)
+
+    bright = 1.0 - contrast * shadow * 0.75
+    bright *= brightness_gain
+    bright += 0.08 * np.sin(v * 1.70 + tt * 3.0)
+    bright = np.clip(bright, 0.0, 1.0)
+
+    bright_index = (bright * 255.0).astype(np.uint16)
+
+    # Direct write into Matrix-Art's current frame buffer.
+    rgb[:, :, :] = lut[(bright_index << 8) + color_index]
 '''.strip(),
     },
     {

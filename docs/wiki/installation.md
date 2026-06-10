@@ -99,7 +99,7 @@ The installer:
 - makes Matrix-Art shell scripts executable
 - installs required Debian packages
 - creates `.venv/`
-- installs Python dependencies
+- installs Python dependencies, including Flask, Pillow, and NumPy
 - creates runtime directories under `data/`
 - clones the latest `hzeller/rpi-rgb-led-matrix` source into `vendor/rpi-rgb-led-matrix/`
 - builds and installs RGB matrix Python bindings into `.venv/` using a low-parallelism build suitable for small Pi models

@@ -980,3 +980,27 @@ body.selecting .select-marker {
   opacity: .55;
   cursor: wait;
 }
+
+/* Code Help reference tables */
+.simple-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 12px 0 14px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.simple-table th,
+.simple-table td {
+  border-bottom: 1px solid var(--line);
+  padding: 9px 10px;
+  text-align: left;
+  vertical-align: top;
+}
+.simple-table th {
+  color: var(--text);
+  background: var(--card2);
+}
+.simple-table tr:last-child td {
+  border-bottom: 0;
+}
