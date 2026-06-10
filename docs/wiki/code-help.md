@@ -16,6 +16,11 @@ The display is 64 pixels wide and 64 pixels tall. Pixel coordinates start at the
   |                        |
   |                        |
   |                        |
+  |                        |
+  |                        |
+  |                        |
+  |                        |
+  |                        |
   +------------------------+
 (0, 63)                (63, 63)
 ```
