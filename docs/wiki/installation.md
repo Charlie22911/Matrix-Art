@@ -28,36 +28,6 @@ git clone https://github.com/Charlie22911/Matrix-Art.git
 cd Matrix-Art
 ```
 
-### Option B: download the ZIP on the Pi
-
-This creates a plain source copy without Git history.
-
-```bash
-sudo apt update
-sudo apt install -y curl unzip
-cd ~
-rm -rf Matrix-Art Matrix-Art-main Matrix-Art.zip
-curl -L -o Matrix-Art.zip https://github.com/Charlie22911/Matrix-Art/archive/refs/heads/main.zip
-unzip Matrix-Art.zip
-mv Matrix-Art-main Matrix-Art
-cd Matrix-Art
-```
-
-### Option C: copy from another computer
-
-Run this command on the computer that already has the Matrix-Art folder. Replace `<pi-ip>` with the Pi's IP address and replace `pi` if the Pi uses a different username.
-
-```bash
-rsync -a --delete --exclude='.git/' ./Matrix-Art/ pi@<pi-ip>:~/Matrix-Art/
-```
-
-Then log in to the Pi and enter the project folder.
-
-```bash
-ssh pi@<pi-ip>
-cd ~/Matrix-Art
-```
-
 ## Run the installer
 
 From the Matrix-Art project folder:
