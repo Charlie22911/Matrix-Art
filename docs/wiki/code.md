@@ -1,6 +1,6 @@
 # Code Page
 
-The Code page is a browser-based Python effect editor and runner. It lets you write visual effects that generate live 64×64 RGB frames, similar to demoscene-style effects.
+The Code page is a browser-based Python effect editor and runner. It provides an editor for visual effects that generate live 64×64 RGB frames, similar to demoscene-style effects.
 
 Due to the potential for misuse, the Code page can be disabled from Settings. When disabled, the Code navigation link is hidden and `/code` is blocked.
 Code previously saved in the Library will remain available for display unless deleted.
@@ -42,7 +42,7 @@ Running Code pauses slideshow.
 
 ## Help
 
-Opens the Code Help page with the effect API reference.
+Opens the Code Help page. It includes the effect API reference, beginner examples, common Python patterns, testing notes, and advanced runtime details.
 
 ## Back to Library
 
@@ -124,9 +124,9 @@ Moves the linked Library Code item to Trash. From Trash it can be recovered or p
 
 ## Built-in Code items
 
-Built-in examples are stored in SQLite on startup. They can be edited in place. Once edited, they are marked customized so startup refresh does not overwrite your changes.
+Built-in examples are stored in SQLite on startup. They can be edited in place. Once edited, they are marked customized so startup refresh does not overwrite customized code.
 
-Use Save as copy when you want to keep the built-in version unchanged and create your own version.
+Save as copy preserves the built-in version and creates a separate custom version.
 
 ## Code thumbnails
 

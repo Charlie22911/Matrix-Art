@@ -49,6 +49,22 @@
     </section>
 
     <section class="card panel">
+      <h2>Database backup</h2>
+      <p class="subtle">Download or restore Matrix-Art runtime data. Backups include artwork, frames, folders, page settings, animation settings, Code effects, demos, and saved Wi-Fi entries stored in the database.</p>
+      <p class="subtle">The Settings PIN and session secret are not included in backups. Restoring a backup keeps the current device PIN.</p>
+      <div class="button-row">
+        <a class="btn" href="/api/settings/database/backup">Download backup</a>
+      </div>
+      <label class="field-label">Restore from backup
+        <input id="databaseRestoreFile" type="file" accept="application/json,.json">
+      </label>
+      <div class="button-row">
+        <button class="btn danger" id="databaseRestoreBtn" type="button">Restore database</button>
+      </div>
+      <p class="subtle">Restore replaces the current library and database settings with the selected backup. The display is stopped during restore.</p>
+    </section>
+
+    <section class="card panel">
       <h2>Page text</h2>
       <p class="subtle">Change the title and the short helper text shown at the top of each page.</p>
       <label class="field-label">Site title

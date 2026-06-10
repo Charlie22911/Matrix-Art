@@ -41,9 +41,9 @@ gpio_mapping = "adafruit-hat-pwm"
 hardware_pulse = true
 ```
 
-That path uses PWM timing hardware and conflicts with onboard audio. When you select hardware PWM during install, the installer turns onboard audio off with `dtparam=audio=off` in the existing Raspberry Pi `config.txt` and keeps `snd_bcm2835` from loading. 
+That path uses PWM timing hardware and conflicts with onboard audio. When hardware PWM is selected during install, the installer turns onboard audio off with `dtparam=audio=off` in the existing Raspberry Pi `config.txt` and keeps `snd_bcm2835` from loading.
 
-More info can be found at `https://learn.adafruit.com/adafruit-rgb-matrix-bonnet-for-raspberry-pi/matrix-setup`
+Adafruit's matrix setup guide is available at `https://learn.adafruit.com/adafruit-rgb-matrix-bonnet-for-raspberry-pi/matrix-setup`.
 
 ## Panel settings
 
@@ -60,4 +60,4 @@ slowdown_gpio = 2
 limit_refresh_rate_hz = 90
 ```
 
-Adjust `slowdown_gpio` or `limit_refresh_rate_hz` in `config.toml` if your specific panel behaves differently.
+Adjust `slowdown_gpio` or `limit_refresh_rate_hz` in `config.toml` if a specific panel behaves differently.

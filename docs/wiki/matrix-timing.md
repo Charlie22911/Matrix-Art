@@ -16,7 +16,7 @@ hardware_pulse = true
 This path requires GPIO4 and GPIO18 to be connected on the Bonnet/HAT setup. See:
 `https://learn.adafruit.com/adafruit-rgb-matrix-bonnet-for-raspberry-pi/matrix-setup#configure-for-quality-slash-convenience-3201054`.
 
-This improves refresh stability by using the driver’s hardware pulse path. But because this uses PWM timing hardware that is shared with the onboard audio, the onboard Raspberry Pi audio must be off. When you choose hardware PWM during install, Matrix-Art sets `dtparam=audio=off` in the existing Raspberry Pi `config.txt` and writes `/etc/modprobe.d/matrix-art-no-audio.conf` so `snd_bcm2835` stays unloaded.
+This improves refresh stability by using the driver’s hardware pulse path. But because this uses PWM timing hardware that is shared with the onboard audio, the onboard Raspberry Pi audio must be off. When hardware PWM is selected during install, Matrix-Art sets `dtparam=audio=off` in the existing Raspberry Pi `config.txt` and writes `/etc/modprobe.d/matrix-art-no-audio.conf` so `snd_bcm2835` stays unloaded.
 
 ## GPIO slowdown
 
@@ -90,7 +90,7 @@ Matrix-Art briefly enters realtime scheduling while constructing the matrix so t
 Run:
 
 ```bash
-cd /home/pi/Matrix-Art
+cd ~/Matrix-Art
 ./scripts/check_matrix_timing.sh
 ```
 
@@ -107,10 +107,10 @@ Desired results:
 
 Heavy package installation or heavy workloads can still cause visible flicker because SD card I/O, memory bandwidth, network activity, power draw, and unavoidable kernel work are shared resources.
 
-Throttling due to undervoltage or exceeding thermal limits can also cause issues due to the inconsistent timing caused by changing CPU clocks speeds. You can check throttle status with the following command:
+Throttling due to undervoltage or exceeding thermal limits can also cause issues due to the inconsistent timing caused by changing CPU clock speeds. You can check throttle status with the following command:
 
 ```bash
 vcgencmd get_throttled
 ```
 
-`throttled=0x0` is the result expected for a system that is not throttling
+`throttled=0x0` is the expected result for a system that is not throttling.

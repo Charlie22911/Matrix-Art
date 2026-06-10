@@ -9,7 +9,7 @@ This wiki documents the Matrix-Art web interface, appliance behavior, installati
 - [Draw](draw.md): draw pixel art directly in a browser with live panel preview.
 - [Code](code.md): write and run Python-generated visual effects.
 - [Code Help](code-help.md): reference for the Code effect API.
-- [Settings](settings.md): app text, security, folders, code timing, animation defaults, diagnostics, matrix timing, Wi-Fi, and hotspot controls.
+- [Settings](settings.md): app text, security, database backup/restore, folders, code timing, animation defaults, diagnostics, matrix timing, Wi-Fi, and hotspot controls.
 - [Settings PIN](settings-pin.md): lock, unlock, change, disable, and recover Settings access.
 - [Wi-Fi and Hotspot](wifi-hotspot.md): connect to Wi-Fi, save networks, start hotspot mode, and understand startup fallback behavior.
 

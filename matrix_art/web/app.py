@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from base64 import b64encode
+from datetime import datetime, timezone
 from io import BytesIO
 import hashlib
 import hmac
@@ -514,7 +515,7 @@ def create_app(services: MatrixArtServices) -> Flask:
         services.db.set_setting("flask_secret_key", secret)
     app.secret_key = secret
     app.config["MATRIX_ART"] = services
-    app.config["MAX_CONTENT_LENGTH"] = 24 * 1024 * 1024
+    app.config["MAX_CONTENT_LENGTH"] = 128 * 1024 * 1024
 
     @app.before_request
     def require_settings_unlock():
@@ -754,6 +755,41 @@ def create_app(services: MatrixArtServices) -> Flask:
             "min_frame_duration_ms": min_ms,
             "max_frame_duration_ms": max_ms,
         }})
+
+    @app.get("/api/settings/database/backup")
+    def api_settings_database_backup():
+        payload = services.db.export_backup_payload()
+        raw = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%SZ")
+        return send_file(
+            BytesIO(raw),
+            mimetype="application/json",
+            as_attachment=True,
+            download_name=f"matrix-art-backup-{stamp}.json",
+            max_age=0,
+        )
+
+    @app.post("/api/settings/database/restore")
+    def api_settings_database_restore():
+        upload = request.files.get("backup")
+        if upload is None or not upload.filename:
+            return jsonify({"ok": False, "error": "Choose a Matrix-Art backup file first."}), 400
+        try:
+            raw = upload.read()
+            if not raw:
+                raise ValueError("backup file is empty")
+            payload = json.loads(raw.decode("utf-8"))
+            _prepare_panel_for_ip_screen(services, reason="database restore")
+            result = services.db.import_backup_payload(payload)
+            services.state.update(
+                slideshow_enabled=False,
+                last_action=f"database restored from backup ({result.get('restored_rows', 0)} rows)",
+                frame_changed=True,
+            )
+            session.pop("settings_unlocked", None)
+            return jsonify({"ok": True, "result": result, "security": _settings_security_snapshot(services)})
+        except Exception as exc:
+            return jsonify({"ok": False, "error": str(exc)}), 400
 
     @app.get("/api/diagnostics")
     def api_diagnostics():

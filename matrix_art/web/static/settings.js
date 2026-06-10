@@ -18,6 +18,16 @@ async function getJson(url) {
   return body;
 }
 
+async function postForm(url, formData) {
+  const res = await fetch(url, {
+    method: 'POST',
+    body: formData,
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok || body.ok === false) throw new Error(body.error || res.statusText);
+  return body;
+}
+
 function setStatus(text) {
   const box = qs('settingsStatus');
   if (box) box.textContent = text;
@@ -116,6 +126,28 @@ async function disableSettingsPin() {
     setStatus('Settings PIN disabled.');
   } catch (err) {
     setStatus(`Disable PIN failed: ${err.message}`);
+  }
+}
+
+async function restoreDatabaseBackup() {
+  const input = qs('databaseRestoreFile');
+  const file = input?.files?.[0];
+  if (!file) {
+    setStatus('Choose a Matrix-Art backup file first.');
+    return;
+  }
+  const msg = 'Restore this database backup? This replaces the current library, folders, settings, Code effects, demos, and saved database entries. The current Settings PIN is kept.';
+  if (!confirm(msg)) return;
+  const form = new FormData();
+  form.append('backup', file);
+  try {
+    setStatus('Restoring database backup...');
+    const body = await postForm('/api/settings/database/restore', form);
+    const rows = body.result?.restored_rows ?? 0;
+    setStatus(`Database restored. ${rows} row(s) imported. Settings PIN preserved. Reloading...`);
+    setTimeout(() => window.location.reload(), 1200);
+  } catch (err) {
+    setStatus(`Database restore failed: ${err.message}`);
   }
 }
 
@@ -556,6 +588,7 @@ function init() {
   qs('lockSettingsNowBtn')?.addEventListener('click', lockSettingsNow);
   qs('disableSettingsPinBtn')?.addEventListener('click', disableSettingsPin);
   qs('saveUiTextBtn')?.addEventListener('click', saveUiText);
+  qs('databaseRestoreBtn')?.addEventListener('click', restoreDatabaseBackup);
   qs('saveCodeSettingsBtn')?.addEventListener('click', saveCodeSettings);
   qs('saveAnimationSettingsBtn')?.addEventListener('click', saveAnimationSettings);
   qs('refreshFoldersBtn')?.addEventListener('click', refreshFolders);

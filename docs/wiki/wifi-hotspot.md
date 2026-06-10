@@ -26,7 +26,7 @@ Actions:
 
 ## Scan networks
 
-Click Scan networks to list nearby SSIDs. Scanning can briefly disrupt Wi-Fi if the selected adapter is also your current access path.
+Click Scan networks to list nearby SSIDs. Scanning can briefly disrupt Wi-Fi if the selected adapter is also the current access path.
 
 Selecting a scanned network loads its SSID into the form.
 

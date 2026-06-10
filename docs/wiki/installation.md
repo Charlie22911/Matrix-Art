@@ -1,6 +1,6 @@
 # Installation
 
-This page documents the Matrix-Art install flow.
+This page covers installing Matrix-Art on Raspberry Pi OS and explains the main installer choices.
 
 ## Reference hardware
 
@@ -12,36 +12,84 @@ This page documents the Matrix-Art install flow.
 
 ## Fresh install
 
-This project assumes that you are starting on a fresh install of Raspberry Pi OS, network access working, and a terminal open on the Pi. SSH is also fine.
+Start from a Raspberry Pi with Raspberry Pi OS installed, network access working, and a terminal open on the Pi. SSH works fine.
 
-Pick one of these ways to put Matrix-Art on the Pi.
+Choose one of these methods to place Matrix-Art on the Pi.
 
 ### Option A: clone from GitHub on the Pi
 
-This is the recommended path when the Pi has internet access. Replace `pi` with your home folder name if differen from `/home/pi`.
+This is the recommended path when the Pi has internet access.
 
 ```bash
 sudo apt update
 sudo apt install -y git
-cd /home/pi
+cd ~
 git clone https://github.com/Charlie22911/Matrix-Art.git
-cd /home/pi/Matrix-Art
+cd Matrix-Art
 ```
 
-Make the installer executable and run it:
+### Option B: download the ZIP on the Pi
+
+This creates a plain source copy without Git history.
 
 ```bash
-sudo chmod +x ./scripts/install.sh
-Sudo ./scripts/install.sh
+sudo apt update
+sudo apt install -y curl unzip
+cd ~
+rm -rf Matrix-Art Matrix-Art-main Matrix-Art.zip
+curl -L -o Matrix-Art.zip https://github.com/Charlie22911/Matrix-Art/archive/refs/heads/main.zip
+unzip Matrix-Art.zip
+mv Matrix-Art-main Matrix-Art
+cd Matrix-Art
+```
+
+### Option C: copy from another computer
+
+Run this command on the computer that already has the Matrix-Art folder. Replace `<pi-ip>` with the Pi's IP address and replace `pi` if the Pi uses a different username.
+
+```bash
+rsync -a --delete --exclude='.git/' ./Matrix-Art/ pi@<pi-ip>:~/Matrix-Art/
+```
+
+Then log in to the Pi and enter the project folder.
+
+```bash
+ssh pi@<pi-ip>
+cd ~/Matrix-Art
+```
+
+## Run the installer
+
+From the Matrix-Art project folder:
+
+```bash
+chmod +x ./scripts/*.sh
+./scripts/install.sh
 sudo reboot
 ```
 
 The installer asks for:
 
 - Web UI port, default `80`
-- Whether you are using the Adafruit GPIO4-to-GPIO18 hardware PWM jumper. Ensure this is correct!
-- Whether to enable CPU isolation and pinning, default yes, and highly recomended.
+- Whether the Adafruit GPIO4-to-GPIO18 hardware PWM jumper is installed
+- Whether to enable CPU isolation and pinning, default yes
 - Whether to start Matrix-Art automatically at boot, install the service disabled, or use manual startup only
+
+The generated service uses the folder where `install.sh` was run. An install from `~/Matrix-Art` creates a service that launches Matrix-Art from `~/Matrix-Art`.
+
+After reboot, the panel shows the IP address, web port, and startup countdown. Open the web UI from a browser:
+
+```text
+http://<panel-ip>/
+```
+
+For a non-default port:
+
+```text
+http://<panel-ip>:<port>/
+```
+
+## Non-interactive install examples
 
 Dry run:
 
@@ -49,7 +97,7 @@ Dry run:
 ./scripts/install.sh --dry-run --yes
 ```
 
-Recommended non-interactive appliance install:
+Recommended appliance install:
 
 ```bash
 ./scripts/install.sh --yes
@@ -63,10 +111,17 @@ Use port 8080:
 sudo reboot
 ```
 
-Use convenience wiring without the GPIO4-to-GPIO18 jumper:
+Use convenience wiring without the GPIO4-to-GPIO18 hardware PWM jumper:
 
 ```bash
 ./scripts/install.sh --yes --hardware-pwm no
+sudo reboot
+```
+
+Disable CPU isolation and pinning:
+
+```bash
+./scripts/install.sh --yes --isolation no
 sudo reboot
 ```
 
@@ -75,23 +130,25 @@ sudo reboot
 The installer:
 
 - asks for install choices when run interactively
+- makes Matrix-Art shell scripts executable
 - installs required Debian packages
 - creates `.venv/`
 - installs Python dependencies
 - creates runtime directories under `data/`
-- clones latest `hzeller/rpi-rgb-led-matrix` into `vendor/rpi-rgb-led-matrix/`
+- clones the latest `hzeller/rpi-rgb-led-matrix` source into `vendor/rpi-rgb-led-matrix/`
 - builds and installs RGB matrix Python bindings into `.venv/` using a low-parallelism build suitable for small Pi models
 - writes Matrix-Art defaults into `config.toml`
 - if hardware PWM is selected, sets `dtparam=audio=off` in the existing `config.txt` and writes `/etc/modprobe.d/matrix-art-no-audio.conf` so `snd_bcm2835` stays unloaded
 - otherwise leaves `config.txt` alone
-- adds or removes CPU-isolation arguments in the existing `cmdline.txt`
-- installs, enables, disables, or skips `matrix-art.service` based on your selected startup mode
+- adds or removes Matrix-Art CPU-isolation arguments in the existing `cmdline.txt`
+- asks before replacing unrelated existing CPU-isolation arguments
+- installs, enables, disables, or skips `matrix-art.service` based on the selected startup mode
 - enables NetworkManager
 - runs Python compile checks
 - runs shell syntax checks
 - checks that `rgbmatrix` can be imported
 
-The installer backs up boot files before editing the audio or CPU-isolation settings. It also backs up an existing Matrix-Art audio blacklist file before replacing it.
+The installer backs up boot files before editing audio or CPU-isolation settings. It also backs up an existing Matrix-Art audio blacklist file before replacing it.
 
 ## Service modes
 
@@ -120,6 +177,8 @@ Install or refresh only the service file:
 sudo systemctl restart matrix-art.service
 ```
 
+If the project folder is moved later, run the service-refresh command again from the new project folder.
+
 ## Matrix driver maintenance
 
 Install or refresh the latest RGB matrix driver:
@@ -136,14 +195,14 @@ Pin a specific upstream commit:
 
 ## Web UI port
 
-The install script asks for the web UI port. It writes that value to:
+The install script writes the selected web UI port to:
 
 ```toml
 [server]
 port = 80
 ```
 
-You can change it later in `config.toml` or from the Settings page.
+The port can be changed later in `config.toml` or from the Settings page.
 
 ## Normal service commands
 
@@ -157,7 +216,7 @@ journalctl -u matrix-art.service -f
 ## Manual run
 
 ```bash
-cd /home/pi/Matrix-Art
+cd ~/Matrix-Art
 ./run.sh
 ```
 

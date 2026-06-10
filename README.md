@@ -23,6 +23,7 @@ Other Raspberry Pi and HUB75 combinations may work, but the installer defaults a
 - Slideshow playback with shuffle, interval, transitions, and transition smoothing
 - Python Code effects with built-in examples and editable custom effects
 - Optional Settings PIN lock with config-file recovery
+- Settings-page database backup and restore, with the Settings PIN excluded from backups
 - Wi-Fi client mode, hotspot mode, and hotspot fallback when saved Wi-Fi is unavailable
 - Startup display showing IP address, web port, and countdown
 - Matrix timing diagnostics, hardware PWM support, and optional CPU isolation/pinning
@@ -128,7 +129,7 @@ Matrix-Art stores runtime data in:
 data/matrix_art.sqlite
 ```
 
-The database stores artwork, frames, drawings, GIF frames, Code effects, folders, settings, Wi-Fi entries, and Settings PIN hashes. Runtime data is ignored by Git.
+The database stores artwork, frames, drawings, GIF frames, Code effects, folders, settings, Wi-Fi entries, and Settings PIN hashes. Runtime data is ignored by Git. The Settings page can download and restore database backups. Backup files exclude the Settings PIN and session secret, so a restore keeps the current device PIN.
 
 ## Third-party software and license notices
 

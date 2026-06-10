@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from base64 import b64decode, b64encode
 import hashlib
 import mimetypes
 import sqlite3
@@ -85,6 +86,41 @@ class DemoRow:
     default_fps: int
     created_at: str
     updated_at: str
+
+
+BACKUP_FORMAT = "matrix-art-database-backup"
+BACKUP_VERSION = 1
+BACKUP_TABLES = (
+    "artwork",
+    "artwork_settings",
+    "frames",
+    "folders",
+    "settings",
+    "demos",
+    "demo_versions",
+)
+BACKUP_EXCLUDED_SETTINGS = {
+    "settings_pin_hash",
+    "settings_pin_salt",
+    "settings_pin_iterations",
+    "flask_secret_key",
+}
+BACKUP_BLOB_MARKER = "__matrix_art_blob_b64__"
+
+
+def _backup_encode_value(value: object) -> object:
+    if isinstance(value, bytes):
+        return {BACKUP_BLOB_MARKER: b64encode(value).decode("ascii")}
+    return value
+
+
+def _backup_decode_value(value: object) -> object:
+    if isinstance(value, dict) and set(value.keys()) == {BACKUP_BLOB_MARKER}:
+        raw = value.get(BACKUP_BLOB_MARKER)
+        if not isinstance(raw, str):
+            raise ValueError("invalid blob value in backup")
+        return b64decode(raw.encode("ascii"), validate=True)
+    return value
 
 
 class Database:
@@ -276,6 +312,123 @@ class Database:
         with self.lock:
             row = self.conn.execute("SELECT value FROM settings WHERE key=?", (key,)).fetchone()
             return str(row["value"]) if row else default
+
+    def export_backup_payload(self) -> dict[str, object]:
+        """Return a portable JSON-safe backup of Matrix-Art runtime data.
+
+        Settings PIN hashes/salts and the Flask session secret are intentionally
+        omitted so restored backups do not copy the Settings PIN to another
+        install or overwrite the current install's PIN.
+        """
+        payload: dict[str, object] = {
+            "format": BACKUP_FORMAT,
+            "format_version": BACKUP_VERSION,
+            "created_at": utc_now(),
+            "excluded_settings": sorted(BACKUP_EXCLUDED_SETTINGS),
+            "tables": {},
+        }
+        tables: dict[str, object] = {}
+        with self.lock:
+            for table in BACKUP_TABLES:
+                table_info = self.conn.execute(f"PRAGMA table_info({table})").fetchall()
+                columns = [str(row["name"]) for row in table_info]
+                if not columns:
+                    continue
+                rows_out: list[dict[str, object]] = []
+                for row in self.conn.execute(f"SELECT * FROM {table}").fetchall():
+                    if table == "settings" and str(row["key"]) in BACKUP_EXCLUDED_SETTINGS:
+                        continue
+                    rows_out.append({column: _backup_encode_value(row[column]) for column in columns})
+                tables[table] = {"columns": columns, "rows": rows_out}
+        payload["tables"] = tables
+        return payload
+
+    def import_backup_payload(self, payload: dict[str, object]) -> dict[str, object]:
+        """Replace database contents from a Matrix-Art backup payload.
+
+        The current Settings PIN and Flask session secret are preserved even if
+        the uploaded backup contains those setting keys.
+        """
+        if not isinstance(payload, dict):
+            raise ValueError("backup is not a JSON object")
+        if payload.get("format") != BACKUP_FORMAT:
+            raise ValueError("backup format is not recognized")
+        try:
+            version = int(payload.get("format_version", 0))
+        except Exception as exc:
+            raise ValueError("backup version is invalid") from exc
+        if version != BACKUP_VERSION:
+            raise ValueError(f"backup version {version} is not supported")
+        tables = payload.get("tables")
+        if not isinstance(tables, dict):
+            raise ValueError("backup does not contain table data")
+
+        restored_rows = 0
+        preserved_settings: dict[str, str] = {}
+        with self.lock:
+            for key in BACKUP_EXCLUDED_SETTINGS:
+                row = self.conn.execute("SELECT value FROM settings WHERE key=?", (key,)).fetchone()
+                if row is not None:
+                    preserved_settings[key] = str(row["value"])
+
+            try:
+                self.conn.execute("PRAGMA foreign_keys=OFF")
+                self.conn.execute("BEGIN IMMEDIATE")
+
+                for table in reversed(BACKUP_TABLES):
+                    self.conn.execute(f"DELETE FROM {table}")
+
+                for table in BACKUP_TABLES:
+                    table_payload = tables.get(table, {})
+                    if not isinstance(table_payload, dict):
+                        continue
+                    backup_columns = table_payload.get("columns")
+                    backup_rows = table_payload.get("rows")
+                    if not isinstance(backup_columns, list) or not isinstance(backup_rows, list):
+                        continue
+
+                    existing_columns = {
+                        str(row["name"])
+                        for row in self.conn.execute(f"PRAGMA table_info({table})").fetchall()
+                    }
+                    columns = [str(column) for column in backup_columns if str(column) in existing_columns]
+                    if not columns:
+                        continue
+
+                    placeholders = ", ".join("?" for _ in columns)
+                    quoted_columns = ", ".join(f'"{column}"' for column in columns)
+                    sql = f'INSERT INTO "{table}" ({quoted_columns}) VALUES ({placeholders})'
+
+                    for row in backup_rows:
+                        if not isinstance(row, dict):
+                            continue
+                        if table == "settings" and str(row.get("key", "")) in BACKUP_EXCLUDED_SETTINGS:
+                            continue
+                        values = [_backup_decode_value(row.get(column)) for column in columns]
+                        self.conn.execute(sql, values)
+                        restored_rows += 1
+
+                now = utc_now()
+                for key, value in preserved_settings.items():
+                    self.conn.execute(
+                        """
+                        INSERT INTO settings(key, value, updated_at)
+                        VALUES (?, ?, ?)
+                        ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at
+                        """,
+                        (key, value, now),
+                    )
+
+                self.conn.commit()
+            except Exception:
+                self.conn.rollback()
+                raise
+            finally:
+                self.conn.execute("PRAGMA foreign_keys=ON")
+
+            self.init_schema()
+
+        return {"format_version": version, "restored_rows": restored_rows, "preserved_settings": sorted(preserved_settings)}
 
     def count_artwork(self) -> int:
         with self.lock:

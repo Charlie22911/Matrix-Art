@@ -25,7 +25,7 @@ Matrix-Art runs as a service on port 80 by default. To install or refresh the se
 sudo systemctl restart matrix-art.service
 ```
 
-You can also install on a high port, such as 8080:
+Matrix-Art can also be installed on a high port, such as 8080:
 
 ```bash
 ./scripts/install.sh --yes --port 8080
@@ -51,10 +51,9 @@ gpio_mapping = "adafruit-hat-pwm"
 hardware_pulse = true
 ```
 
-Make sure `snd_bcm2835` is not loaded. If you selected hardware PWM during install, Matrix-Art writes `/etc/modprobe.d/matrix-art-no-audio.conf` so the module stays unloaded after reboot.
+Make sure `snd_bcm2835` is not loaded. If hardware PWM was selected during install, Matrix-Art writes `/etc/modprobe.d/matrix-art-no-audio.conf` so the module stays unloaded after reboot.
 
-Driving RGB matrix panels can be complicated, Adafruit has a wonderful guide for the bonnet used in this project here:
-`https://learn.adafruit.com/adafruit-rgb-matrix-bonnet-for-raspberry-pi/overview`
+Adafruit's RGB Matrix Bonnet guide is available at `https://learn.adafruit.com/adafruit-rgb-matrix-bonnet-for-raspberry-pi/overview`.
 
 ## Settings PIN forgotten
 

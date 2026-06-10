@@ -21,6 +21,42 @@ If the PIN is forgotten, set `reset_settings_pin = true` under `[security]` in `
 
 See [Settings PIN](settings-pin.md).
 
+## Database backup
+
+The Database backup card downloads and restores Matrix-Art runtime data.
+
+Backups include:
+
+- artwork records
+- stored PNG frames
+- uploaded GIF frames
+- browser drawings
+- folders and folder protection settings
+- page text settings
+- animation and Code settings
+- saved Code effects and demos
+- saved Wi-Fi entries stored in the database
+
+Backups exclude the Settings PIN and Flask session secret. A restore keeps the current device PIN instead of importing the PIN from the backup file.
+
+### Download a backup
+
+Open Settings, then click Download backup. The browser downloads a JSON file named like:
+
+```text
+matrix-art-backup-20260610-153000Z.json
+```
+
+The file is portable between Matrix-Art installs using the same backup format version.
+
+### Restore a backup
+
+Open Settings, choose a Matrix-Art backup JSON file, then click Restore database. Restore replaces the current database contents with the uploaded backup while preserving the current Settings PIN.
+
+During restore, Matrix-Art stops active display playback and reloads the Settings page after the import finishes.
+
+Keep backup files somewhere private if they contain personal artwork, local network names, or saved Wi-Fi entries.
+
 ## Page text
 
 The Page text card controls the title and subtitles shown at the top of each web UI page.

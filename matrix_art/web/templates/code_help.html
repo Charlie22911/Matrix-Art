@@ -10,7 +10,7 @@
   <header class="topbar">
     <div>
       <h1>{{ ui.title }} Code Help</h1>
-      <p class="subtle">How to write Python effects for the 64×64 RGB matrix.</p>
+      <p class="subtle">Python effect reference and learning guide for the 64×64 RGB matrix.</p>
     </div>
     <nav class="top-nav">
       <a class="btn link-btn" href="/code">Back to Code</a>
@@ -21,8 +21,19 @@
 
   <main class="help-page">
     <section class="card panel">
+      <h2>What a Code effect is</h2>
+      <p>A Code item is a Python script that draws one 64×64 RGB frame at a time. Matrix-Art runs the script in a separate effect process, calls <code>render()</code> repeatedly, and sends each frame to the panel.</p>
+      <p>The top-left pixel is <code>(0, 0)</code>. The bottom-right pixel is <code>(63, 63)</code>. RGB color values are normally <code>0</code> to <code>255</code>.</p>
+      <pre class="code-preview">red = (255, 0, 0)
+green = (0, 255, 0)
+blue = (0, 0, 255)
+white = (255, 255, 255)
+black = (0, 0, 0)</pre>
+    </section>
+
+    <section class="card panel">
       <h2>Minimum effect</h2>
-      <p>Each code effect is a Python script. The only required function is <code>render()</code>. Matrix-Art calls it repeatedly and sends the resulting 64×64 RGB frame to the panel.</p>
+      <p>The only required function is <code>render()</code>. This example clears the panel and lights one red pixel near the center.</p>
       <pre class="code-preview">def render(ctx, t, dt, frame, params):
     frame.fill(0, 0, 0)
     frame.set_pixel(32, 32, 255, 0, 0)</pre>
@@ -31,65 +42,138 @@
     <section class="card panel">
       <h2>Function arguments</h2>
       <ul class="help-list">
-        <li><code>ctx</code> contains display and timing values.</li>
+        <li><code>ctx</code> contains display and timing values such as <code>ctx.width</code>, <code>ctx.height</code>, <code>ctx.fps</code>, and <code>ctx.frame_index</code>.</li>
         <li><code>t</code> is seconds since the effect started.</li>
-        <li><code>dt</code> is seconds since the last frame.</li>
-        <li><code>frame</code> is the 64×64 drawing buffer.</li>
+        <li><code>dt</code> is seconds since the last frame. Use it for frame-rate-independent motion.</li>
+        <li><code>frame</code> is the drawing buffer.</li>
         <li><code>params</code> contains default parameter values from <code>PARAMS</code>.</li>
         <li><code>state</code> is optional persistent storage returned by <code>setup()</code>.</li>
       </ul>
-      <pre class="code-preview">def setup(ctx):
-    return {"x": 0, "direction": 1}
-
-def render(ctx, t, dt, frame, params, state):
-    state["x"] += state["direction"]
-    if state["x"] <= 0 or state["x"] >= ctx.width - 1:
-        state["direction"] *= -1
-    frame.fill(0, 0, 0)
-    frame.set_pixel(state["x"], 32, 0, 255, 80)</pre>
+      <pre class="code-preview">def render(ctx, t, dt, frame, params):
+    x = int((t * 10) % ctx.width)
+    frame.clear()
+    frame.set_pixel(x, 32, 255, 120, 0)</pre>
     </section>
 
     <section class="card panel">
-      <h2>Context values</h2>
-      <ul class="help-list">
-        <li><code>ctx.width</code> and <code>ctx.height</code> are normally 64.</li>
-        <li><code>ctx.fps</code> is the target frame rate.</li>
-        <li><code>ctx.frame_index</code> starts at 0 and increments each rendered frame.</li>
-        <li><code>ctx.time</code> and <code>ctx.dt</code> mirror <code>t</code> and <code>dt</code>.</li>
-      </ul>
+      <h2>Persistent state with setup()</h2>
+      <p>Use <code>setup()</code> for values that need to survive between frames, such as position, velocity, particles, random seeds, or cached network data.</p>
+      <pre class="code-preview">def setup(ctx):
+    return {"x": 0, "direction": 1}
+
+
+def render(ctx, t, dt, frame, params, state):
+    state["x"] += state["direction"]
+
+    if state["x"] <= 0 or state["x"] >= ctx.width - 1:
+        state["direction"] *= -1
+
+    frame.clear()
+    frame.set_pixel(state["x"], 32, 0, 255, 80)</pre>
     </section>
 
     <section class="card panel">
       <h2>Frame drawing helpers</h2>
       <ul class="help-list">
-        <li><code>frame.fill(r, g, b)</code></li>
-        <li><code>frame.clear()</code></li>
-        <li><code>frame.set_pixel(x, y, r, g, b)</code></li>
-        <li><code>frame.get_pixel(x, y)</code></li>
-        <li><code>frame.fade(amount)</code>, where <code>1.0</code> keeps everything and <code>0.0</code> fades to black</li>
-        <li><code>frame.line(x0, y0, x1, y1, r, g, b)</code></li>
-        <li><code>frame.rect(x, y, w, h, r, g, b, fill=False)</code></li>
-        <li><code>frame.circle(cx, cy, radius, r, g, b, fill=False)</code></li>
+        <li><code>frame.fill(r, g, b)</code>: fill the whole frame with one color.</li>
+        <li><code>frame.clear()</code>: fill the frame with black.</li>
+        <li><code>frame.set_pixel(x, y, r, g, b)</code>: draw one pixel.</li>
+        <li><code>frame.get_pixel(x, y)</code>: read one pixel as <code>(r, g, b)</code>.</li>
+        <li><code>frame.fade(amount)</code>: multiply current frame brightness by <code>amount</code>.</li>
+        <li><code>frame.line(x0, y0, x1, y1, r, g, b)</code>: draw a line.</li>
+        <li><code>frame.rect(x, y, w, h, r, g, b, fill=False)</code>: draw a rectangle.</li>
+        <li><code>frame.circle(cx, cy, radius, r, g, b, fill=False)</code>: draw a circle.</li>
       </ul>
+      <pre class="code-preview">def render(ctx, t, dt, frame, params):
+    frame.clear()
+    frame.line(0, 0, 63, 63, 255, 255, 255)
+    frame.rect(6, 6, 20, 14, 255, 80, 0, fill=False)
+    frame.circle(46, 32, 10, 80, 180, 255, fill=True)</pre>
+    </section>
+
+    <section class="card panel">
+      <h2>Beginner example: sine wave</h2>
+      <p>This example draws one animated wave. Change <code>12</code> to adjust height, or <code>t * 4</code> to adjust speed.</p>
+      <pre class="code-preview">import math
+
+
+def render(ctx, t, dt, frame, params):
+    frame.clear()
+
+    for x in range(ctx.width):
+        y = int(32 + math.sin(x * 0.25 + t * 4) * 12)
+        frame.set_pixel(x, y, 0, 200, 255)</pre>
+    </section>
+
+    <section class="card panel">
+      <h2>Beginner example: bouncing ball</h2>
+      <p>This example uses <code>dt</code> so the ball moves by pixels per second, not pixels per frame.</p>
+      <pre class="code-preview">def setup(ctx):
+    return {"x": 12.0, "y": 16.0, "vx": 22.0, "vy": 15.0}
+
+
+def render(ctx, t, dt, frame, params, state):
+    state["x"] += state["vx"] * dt
+    state["y"] += state["vy"] * dt
+
+    if state["x"] < 2 or state["x"] > ctx.width - 3:
+        state["vx"] *= -1
+    if state["y"] < 2 or state["y"] > ctx.height - 3:
+        state["vy"] *= -1
+
+    frame.clear()
+    frame.circle(int(state["x"]), int(state["y"]), 2, 255, 80, 160, fill=True)</pre>
     </section>
 
     <section class="card panel">
       <h2>Parameters</h2>
-      <p>Effects may define <code>PARAMS</code>. At the moment Matrix-Art uses the default values. Slider controls can be added later without changing the effect format.</p>
+      <p>Effects may define <code>PARAMS</code>. Matrix-Art currently uses the default values. The format is designed so UI controls can be added later without changing the effect format.</p>
       <pre class="code-preview">PARAMS = {
-    "speed": {"type": "float", "default": 1.0, "min": 0.1, "max": 4.0, "step": 0.1},
-    "count": {"type": "int", "default": 12, "min": 1, "max": 50, "step": 1},
-}</pre>
+    "speed": {"type": "float", "default": 20.0, "min": 1.0, "max": 80.0, "step": 1.0},
+    "red": {"type": "int", "default": 255, "min": 0, "max": 255, "step": 1},
+}
+
+
+def render(ctx, t, dt, frame, params):
+    speed = params.get("speed", 20.0)
+    red = params.get("red", 255)
+    x = int((t * speed) % ctx.width)
+    frame.clear()
+    frame.set_pixel(x, 32, red, 80, 20)</pre>
     </section>
 
     <section class="card panel">
-      <h2>Tips</h2>
+      <h2>For experienced users</h2>
       <ul class="help-list">
-        <li>Keep nested loops small. The panel is only 4,096 pixels, so full-screen loops are fine.</li>
-        <li>Use <code>dt</code> for movement so the effect speed stays stable if FPS changes.</li>
-        <li>Use <code>setup()</code> for persistent objects such as stars, particles, balls, grids, or random seeds.</li>
-        <li>Keep imports simple. Built-in modules like <code>math</code> and <code>random</code> work well.</li>
-        <li>Run Editor lets you test unsaved changes. Save stores the code and updates its Library thumbnail from frame 10.</li>
+        <li>Code runs in a separate process from the web UI.</li>
+        <li>Each render starts with a fresh blank <code>FrameBuffer</code>.</li>
+        <li>The runner drops old frames if the effect produces frames faster than the display worker can use them.</li>
+        <li>Long blocking work inside <code>render()</code> will cause stutter.</li>
+        <li>Network calls should be done rarely and cached in <code>state</code>. The built-in weather example shows this pattern.</li>
+        <li>Code effects are regular Python and run locally on the Pi, so file and system access should be used carefully.</li>
+      </ul>
+    </section>
+
+    <section class="card panel">
+      <h2>Testing and debugging</h2>
+      <ul class="help-list">
+        <li><strong>Check</strong> validates syntax without starting the effect.</li>
+        <li><strong>Run Editor</strong> tests unsaved changes.</li>
+        <li><strong>Save</strong> stores the code and regenerates its Library thumbnail from frame 10.</li>
+        <li><strong>Use Current Display as Thumbnail</strong> is useful when startup frames are blank or unrepresentative.</li>
+      </ul>
+      <p>Common beginner errors include missing colons, mismatched quotes, typos in helper names, variables used before assignment, and mixed tabs/spaces.</p>
+    </section>
+
+    <section class="card panel">
+      <h2>Practical tips</h2>
+      <ul class="help-list">
+        <li>Start from a small working example, then change one thing at a time.</li>
+        <li>Keep full-screen loops simple. The panel has 4,096 pixels.</li>
+        <li>Use <code>dt</code> for movement math.</li>
+        <li>Use <code>setup()</code> for particles, balls, grids, random seeds, or cached network data.</li>
+        <li>Built-in modules like <code>math</code>, <code>random</code>, and <code>time</code> are good choices.</li>
+        <li>Lower the FPS if an effect is too heavy.</li>
       </ul>
     </section>
   </main>
