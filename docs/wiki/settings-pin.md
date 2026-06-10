@@ -7,6 +7,7 @@ Matrix-Art can protect the Settings page behind a numeric PIN.
 When locked, Settings-only controls are blocked, including:
 
 - page text changes
+- Enabling and Disabling the code page
 - Code timing settings
 - animation defaults
 - diagnostics and matrix timing APIs
