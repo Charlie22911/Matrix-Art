@@ -2,12 +2,6 @@
 
 The Code Help page documents how to write Python effects for the 64×64 RGB matrix.
 
-Route:
-
-```text
-/code/help
-```
-
 ## Minimum effect
 
 A Code effect needs a `render()` function.
