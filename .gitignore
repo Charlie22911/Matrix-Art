@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# Runtime data
+data/*.sqlite
+data/*.sqlite-*
+data/*.db
+data/originals/
+data/tmp/
+*.log
+
+# Local config/backups
+config.local.toml
+*.bak
+*.tmp
+/boot-backups/
+
+# Editor/OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+vendor/
+rpi-rgb-led-matrix/
+rgbmatrix/
+*.so
+*.a
+*.o

@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ ui.title }} Settings Locked</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <h1>{{ ui.title }}</h1>
+      <p class="subtle">Settings are protected by a PIN.</p>
+    </div>
+    <nav class="top-nav">
+      <a class="btn link-btn" href="/">Library</a>
+      <a class="btn link-btn" href="/upload">Upload</a>
+      <a class="btn link-btn" href="/draw">Draw</a>
+      {% if code_editor_enabled %}<a class="btn link-btn" href="/code">Code</a>{% endif %}
+      <a class="btn link-btn" href="/settings">Settings</a>
+    </nav>
+  </header>
+
+  <main class="settings-grid settings-lock-grid">
+    <section class="card panel settings-lock-card">
+      <h2>Unlock Settings</h2>
+      <p class="subtle">Enter the Settings PIN to change app text, timing, Wi-Fi, folders, diagnostics, and other administrative options.</p>
+      <form method="post" action="/settings/unlock">
+        <label class="field-label">PIN
+          <input name="pin" type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="current-password" autofocus>
+        </label>
+        <button class="btn" type="submit">Unlock</button>
+      </form>
+      {% if error %}<pre class="error">{{ error }}</pre>{% endif %}
+      <p class="subtle">The Library, Upload, Draw, slideshow, and display controls remain available while Settings are locked. If the PIN is forgotten, set reset_settings_pin = true under [security] in config.toml, then restart Matrix-Art.</p>
+    </section>
+  </main>
+</body>
+</html>

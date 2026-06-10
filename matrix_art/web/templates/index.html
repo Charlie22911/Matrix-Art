@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ ui.title }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body data-trash-view="{{ '1' if is_trash else '0' }}">
+  <header class="topbar">
+    <div>
+      <h1>{{ ui.title }}</h1>
+      <p class="subtle">{{ ui.library_subtitle }}</p>
+    </div>
+    <nav class="top-nav"><a class="btn link-btn" href="/">Library</a><a class="btn link-btn" href="/upload">Upload</a><a class="btn link-btn" href="/draw">Draw</a>{% if code_editor_enabled %}<a class="btn link-btn" href="/code">Code</a>{% endif %}<a class="btn link-btn" href="/settings">Settings</a></nav>
+    <div class="current-card">
+      <img id="currentPreview" class="current-preview" src="{{ url_for('current_png') }}?t={{ state.updated_at }}" alt="Current panel preview">
+      <div>
+        <div class="label">Current</div>
+        <div id="currentTitle" class="current-title">{{ state.current_title }}</div>
+        <div id="driverLine" class="subtle">Driver: {{ state.display_driver }}</div>
+        <div id="priorityLine" class="subtle">{{ state.priority_status }}</div>
+      </div>
+    </div>
+  </header>
+
+  <section class="panel card">
+    <div class="stat-row">
+      <div><strong>{{ total }}</strong><span>Total</span></div>
+      <div><strong>{{ enabled_count }}</strong><span>Enabled</span></div>
+      <div><strong id="brightnessValue">{{ state.brightness }}</strong><span>Brightness</span></div>
+      <div><strong id="displayState">{{ 'ON' if state.display_enabled else 'OFF' }}</strong><span>Display</span></div>
+      <div><strong id="slideshowState">{{ 'ON' if state.slideshow_enabled else 'OFF' }}</strong><span>Slideshow</span></div>
+    </div>
+    <div class="button-row">
+      <button class="btn" id="clearBtn">Clear panel</button>
+      <button class="btn" id="displayToggleBtn" data-enabled="{{ '1' if state.display_enabled else '0' }}">Toggle display</button>
+      <label class="brightness-label">Brightness
+        <input id="brightnessSlider" type="range" min="1" max="100" value="{{ state.brightness }}">
+      </label>
+    </div>
+    <div class="button-row slideshow-row">
+      <button class="btn" id="prevBtn">Previous</button>
+      <button class="btn" id="nextBtn">Next</button>
+      <button class="btn" id="slideshowToggleBtn" data-enabled="{{ '1' if state.slideshow_enabled else '0' }}">{{ 'Pause slideshow' if state.slideshow_enabled else 'Start slideshow' }}</button>
+      <label class="enabled-check"><input id="shuffleBox" type="checkbox" {% if state.shuffle_enabled %}checked{% endif %}> Shuffle</label>
+      <label class="brightness-label">Interval
+        <input id="intervalInput" class="number-input" type="number" min="1" max="3600" step="1" value="{{ state.interval_seconds|int }}">
+        <span class="subtle">sec</span>
+      </label>
+    </div>
+    <div class="button-row slideshow-row transition-row">
+      <label class="enabled-check"><input id="transitionEnabledBox" type="checkbox" {% if state.transition_enabled %}checked{% endif %}> Transitions</label>
+      <label class="brightness-label">Effect
+        <select id="transitionEffectSelect" class="select-input">
+          {% for effect in transition_effects %}
+            <option value="{{ effect }}" {% if state.transition_effect == effect %}selected{% endif %}>{{ effect }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label class="brightness-label">Duration
+        <input id="transitionDurationInput" class="number-input" type="number" min="0" max="10000" step="50" value="{{ state.transition_duration_ms|int }}">
+        <span class="subtle">ms</span>
+      </label>
+      <label class="brightness-label">FPS
+        <input id="transitionFpsInput" class="number-input" type="number" min="1" max="120" step="1" value="{{ state.transition_fps|int }}">
+      </label>
+      <label class="enabled-check"><input id="transitionSmoothingBox" type="checkbox" {% if state.transition_smoothing %}checked{% endif %}> Smoothing</label>
+      <label class="brightness-label">Strength
+        <input id="transitionSmoothingStrengthInput" class="number-input" type="number" min="0" max="100" step="5" value="{{ state.transition_smoothing_strength|int }}">
+        <span class="subtle">%</span>
+      </label>
+    </div>
+    <pre id="statusBox" class="status">{{ state.last_action }}</pre>
+    {% if state.last_error %}<pre class="error">{{ state.last_error }}</pre>{% endif %}
+  </section>
+
+  <section class="card filters">
+    <form method="get" action="/">
+      <input name="q" placeholder="Search art or folder" value="{{ q }}">
+      <select name="enabled">
+        <option value="all" {% if enabled == 'all' %}selected{% endif %}>All</option>
+        <option value="yes" {% if enabled == 'yes' %}selected{% endif %}>Enabled</option>
+        <option value="no" {% if enabled == 'no' %}selected{% endif %}>Disabled</option>
+      </select>
+      <select name="folder">
+        <option value="all" {% if folder == 'all' %}selected{% endif %}>All folders</option>
+        <option value="unfiled" {% if folder == 'unfiled' %}selected{% endif %}>Unfiled</option>
+        {% for item in folders %}
+          <option value="{{ item.path }}" {% if folder == item.path %}selected{% endif %}>{{ '— ' * item.depth }}{{ item.name }} ({{ item.count }})</option>
+        {% endfor %}
+      </select>
+      <button class="btn" id="newFolderBtn" type="button">New Folder</button>
+      <button class="btn" type="submit">Filter</button>
+      <a class="btn link-btn" href="/">Reset</a>
+    </form>
+  </section>
+
+  <section class="card bulk-actions" id="bulkActions">
+    <div class="button-row">
+      {% if is_trash %}
+        <button class="btn" id="recoverModeBtn" data-bulk-action="recover">Recover</button>
+        <button class="btn danger" id="destroyModeBtn" data-bulk-action="destroy">Destroy</button>
+      {% else %}
+        <button class="btn" id="moveModeBtn" data-bulk-action="move">Move Image</button>
+        <select class="bulk-folder-select" id="bulkMoveFolderSelect" hidden>
+          <option value="">Unfiled</option>
+          {% for item in folders if not item.trash %}
+            <option value="{{ item.path }}">{{ '— ' * item.depth }}{{ item.name }}</option>
+          {% endfor %}
+        </select>
+        <button class="btn danger" id="deleteModeBtn" data-bulk-action="trash">Delete</button>
+        <button class="btn" id="folderEnableToggleBtn" data-folder="{{ folder }}" data-enable-target="{{ '0' if folder_all_enabled else '1' }}">{{ 'Disable All' if folder_all_enabled else 'Enable All' }}</button>
+      {% endif %}
+      <button class="btn" id="cancelSelectBtn" hidden>Cancel</button>
+      <span class="subtle" id="selectHint">{% if is_trash %}Trash mode: choose Recover or Destroy, then tap images.{% else %}Press Move Image to select images for a folder move, or Delete to select images to move to Trash.{% endif %}</span>
+      <span class="selection-count" id="selectionCount" hidden>0 selected</span>
+    </div>
+  </section>
+
+  <main class="grid" id="artGrid">
+    {% for row in rows %}
+      <article class="art-card {% if not row.enabled %}disabled{% endif %}" data-id="{{ row.id }}" data-title="{{ row.title }}" data-folder="{{ row.folder_path }}">
+        <div class="select-marker" aria-hidden="true">✓</div>
+        <img class="thumb" src="{{ url_for('thumb', artwork_id=row.id) }}?v={{ row.updated_at|urlencode }}" alt="{{ row.title }}" loading="lazy">
+        <div class="art-title-row">
+          <div class="art-title" title="{{ row.source_path or row.title }}">{{ row.title }}</div>
+          <button class="icon-btn rename-btn" type="button" title="Rename item" aria-label="Rename {{ row.title }}">✎</button>
+        </div>
+        <div class="art-meta"><span class="kind-badge {{ row.kind }}">{{ row.kind }}</span>{% if row.frame_count > 1 %}<span class="frame-badge">{{ row.frame_count }} frames</span>{% endif %}</div>
+        <div class="art-path">{{ 'Trash' if is_trash else (row.folder_path or 'Unfiled') }}</div>
+        {% if not is_trash %}
+          <div class="folder-row">
+            <label>Folder
+              <select class="folder-select">
+                <option value="" {% if not row.folder_path %}selected{% endif %}>Unfiled</option>
+                {% for item in folders if not item.trash %}
+                  <option value="{{ item.path }}" {% if row.folder_path == item.path %}selected{% endif %}>{{ '— ' * item.depth }}{{ item.name }}</option>
+                {% endfor %}
+                <option value="__new__">New folder…</option>
+              </select>
+            </label>
+          </div>
+          <div class="art-actions">
+            <button class="btn small show-btn">Show</button>
+            <button class="enable-toggle {{ 'enabled' if row.enabled else 'disabled' }}" data-enabled="{{ '1' if row.enabled else '0' }}">{{ 'Enabled' if row.enabled else 'Disabled' }}</button>
+          </div>
+        {% else %}
+          <div class="art-actions trash-note"><span class="subtle">Tap after choosing Recover or Destroy.</span></div>
+        {% endif %}
+      </article>
+    {% endfor %}
+  </main>
+
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

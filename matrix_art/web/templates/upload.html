@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ ui.title }} Upload</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <h1>{{ ui.title }}</h1>
+      <p class="subtle">{{ ui.upload_subtitle }}</p>
+    </div>
+    <nav class="top-nav">
+      <a class="btn link-btn" href="/">Library</a>
+      <a class="btn link-btn" href="/upload">Upload</a>
+      <a class="btn link-btn" href="/draw">Draw</a>
+      {% if code_editor_enabled %}<a class="btn link-btn" href="/code">Code</a>{% endif %}
+      <a class="btn link-btn" href="/settings">Settings</a>
+    </nav>
+  </header>
+
+  <section class="card upload-card">
+    <div class="upload-grid">
+      <div class="upload-controls">
+        <label class="field-label">Image or animated GIF
+          <input id="uploadFile" type="file" accept="image/png,image/jpeg,image/webp,image/bmp,image/gif">
+        </label>
+
+        <div id="fileKindBadge" class="upload-kind-badge">No file selected</div>
+
+        <label class="field-label">Title
+          <input id="uploadTitle" type="text" placeholder="Artwork title">
+        </label>
+        <label class="field-label">Folder
+          <input id="uploadFolder" type="text" value="Uploads" list="folderList" placeholder="Uploads, Animations, or Uploads/Favorites">
+          <datalist id="folderList">
+            {% for item in folders if not item.trash %}<option value="{{ item.path }}"></option>{% endfor %}
+          </datalist>
+        </label>
+
+        <div id="transformControls" class="hidden-panel">
+          <div class="two-col">
+            <label class="field-label">Mode
+              <select id="scaleMode">
+                <option value="crop" selected>Crop square</option>
+                <option value="fit">Fit full image</option>
+                <option value="fill">Fill/crop center</option>
+                <option value="stretch">Stretch</option>
+              </select>
+            </label>
+            <label class="field-label">Resampling
+              <select id="resampleMode">
+                <option value="nearest" selected>Nearest/pixel</option>
+                <option value="smooth">Smooth</option>
+                <option value="bicubic">Bicubic</option>
+                <option value="bilinear">Bilinear</option>
+              </select>
+            </label>
+          </div>
+          <label class="field-label">Background
+            <input id="backgroundColor" type="color" value="{{ config.image.background_color }}">
+          </label>
+          <label class="field-label crop-only">Crop zoom
+            <input id="cropZoom" type="range" min="1" max="8" step="0.01" value="1">
+          </label>
+          <div class="button-row crop-only">
+            <button class="btn" id="fitCropBtn" type="button">Fit square</button>
+            <button class="btn" id="centerCropBtn" type="button">Center crop</button>
+          </div>
+        </div>
+
+        <div id="gifControls" class="hidden-panel">
+          <h3>Animation settings</h3>
+          <div class="two-col">
+            <label class="field-label">Max frames
+              <input id="gifMaxFrames" type="number" min="1" max="{{ config.animation.max_gif_frames }}" value="{{ config.animation.max_gif_frames }}">
+            </label>
+            <label class="field-label">Default frame ms
+              <input id="gifDefaultDuration" type="number" min="1" max="60000" value="{{ config.animation.default_frame_duration_ms }}">
+            </label>
+          </div>
+          <div class="two-col">
+            <label class="field-label">Min frame ms
+              <input id="gifMinDuration" type="number" min="1" max="60000" value="{{ config.animation.min_frame_duration_ms }}">
+            </label>
+            <label class="field-label">Max frame ms
+              <input id="gifMaxDuration" type="number" min="1" max="60000" value="{{ config.animation.max_frame_duration_ms }}">
+            </label>
+          </div>
+          <p class="subtle">The browser preview, panel preview, and save all use these settings plus the crop/scale controls above.</p>
+        </div>
+
+        <label class="enabled-check"><input id="uploadEnabled" type="checkbox" checked> Enabled in slideshow/library</label>
+        <label class="enabled-check"><input id="showNow" type="checkbox" checked> Show on panel after save</label>
+        <div class="button-row upload-actions">
+          <button class="btn" id="previewPanelBtn" type="button" disabled>Preview on panel</button>
+          <button class="btn" id="saveUploadBtn" type="button" disabled>Save to library</button>
+        </div>
+        <pre id="uploadStatus" class="status">Choose an image or GIF to begin.</pre>
+      </div>
+
+      <div class="crop-area hidden-panel" id="sourceArea">
+        <div class="label" id="sourceLabel">Source crop</div>
+        <canvas id="sourceCanvas" class="source-canvas" width="512" height="512"></canvas>
+        <p class="subtle" id="sourceHelp">Drag the crop square. Use the zoom slider to change how much of the source image becomes the 64×64 result.</p>
+      </div>
+
+      <div class="preview-area">
+        <div class="label">64×64 preview</div>
+        <canvas id="previewCanvas" class="preview-canvas" width="64" height="64"></canvas>
+        <div class="preview-large-wrap">
+          <canvas id="previewLarge" class="preview-large" width="512" height="512"></canvas>
+        </div>
+        <p class="subtle" id="previewHelp">Grid lines show the 64×64 RGB matrix cells. Still images save the exact preview; GIFs save the processed animated preview.</p>
+      </div>
+    </div>
+  </section>
+
+  <script src="{{ url_for('static', filename='upload.js') }}"></script>
+</body>
+</html>

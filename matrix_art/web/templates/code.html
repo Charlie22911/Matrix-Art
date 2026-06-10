@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ ui.title }} Code</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <h1>{{ ui.title }}</h1>
+      <p class="subtle">{{ ui.code_subtitle }}</p>
+    </div>
+    <nav class="top-nav">
+      <a class="btn link-btn" href="/">Library</a>
+      <a class="btn link-btn" href="/upload">Upload</a>
+      <a class="btn link-btn" href="/draw">Draw</a>
+      <a class="btn link-btn" href="/code">Code</a>
+      <a class="btn link-btn" href="/settings">Settings</a>
+    </nav>
+    <div class="current-card">
+      <img id="currentPreview" class="current-preview" src="{{ url_for('current_png') }}?t={{ state.updated_at }}" alt="Current panel preview">
+      <div>
+        <div class="label">Current</div>
+        <div id="currentTitle" class="current-title">{{ state.current_title }}</div>
+        <div id="demoStatusLine" class="subtle">Code: {{ demo_status.title if demo_status.running else 'stopped' }}</div>
+      </div>
+    </div>
+  </header>
+
+  <section class="card panel">
+    <div class="stat-row demo-stats">
+      <div><strong id="demoRunning">{{ 'YES' if demo_status.running else 'NO' }}</strong><span>Running</span></div>
+      <div><strong id="demoFps">{{ demo_status.fps }}</strong><span>FPS</span></div>
+      <div><strong id="demoFrames">{{ demo_status.frames_rendered }}</strong><span>Frames</span></div>
+      <div><strong id="demoCount">{{ demos|length }}</strong><span>Code</span></div>
+    </div>
+    <div class="button-row">
+      <button class="btn run-toggle" id="runStopCodeBtn" type="button" data-running="{{ '1' if demo_status.running else '0' }}">{{ 'Stop Code' if demo_status.running else 'Run Code' }}</button>
+      <a class="btn link-btn" href="/code/help">Help</a>
+      <a class="btn link-btn" href="/">Back to Library</a>
+    </div>
+    <pre id="demoStatus" class="status">Choose a code effect, edit it, then run the editor version or save it to the library.</pre>
+    <pre id="demoError" class="error" {% if not demo_status.last_error %}hidden{% endif %}>{{ demo_status.last_error }}</pre>
+  </section>
+
+  <main class="demo-editor-layout">
+    <aside class="card demo-list-panel">
+      <div class="demo-list-header">
+        <h2>Code</h2>
+        <button class="btn small" id="newDemoBtn" type="button">New</button>
+      </div>
+      <div id="demoList" class="demo-list">
+        {% for demo in demos %}
+          <button class="demo-list-item" type="button" data-id="{{ demo.id }}">
+            <span class="demo-list-title">{{ demo.title }}</span>
+            <span class="demo-list-meta">{{ demo.default_fps }} FPS{% if demo.builtin %} · built-in{% endif %}</span>
+          </button>
+        {% endfor %}
+      </div>
+    </aside>
+
+    <section class="card demo-editor-panel">
+      <div class="demo-editor-head">
+        <div>
+          <h2 id="editorHeading">Code editor</h2>
+          <p id="editorMeta" class="subtle">Built-in code effects can be edited in place, or saved as a separate copy.</p>
+        </div>
+        <div class="button-row editor-main-actions">
+          <button class="btn" id="checkBtn" type="button">Check</button>
+          <button class="btn" id="runDraftBtn" type="button">Run Editor</button>
+          <button class="btn" id="saveBtn" type="button">Save</button>
+          <button class="btn" id="currentThumbBtn" type="button">Use Current Display as Thumbnail</button>
+          <button class="btn" id="copyBtn" type="button">Save as copy</button>
+          <button class="btn danger" id="deleteDemoBtn" type="button">Delete</button>
+        </div>
+      </div>
+
+      <div class="demo-form-grid">
+        <label class="field-label">Title
+          <input id="demoTitle" type="text" value="">
+        </label>
+        <label class="field-label">FPS
+          <input id="demoFpsInput" type="number" min="1" max="{{ code_max_fps if code_max_fps > 0 else 1000 }}" step="1" value="{{ code_default_fps }}">
+        </label>
+        <label class="field-label demo-enabled-field">Enabled
+          <button id="demoEnabledBtn" class="enable-toggle enabled" type="button" data-enabled="1">Enabled</button>
+        </label>
+      </div>
+
+      <label class="field-label">Description
+        <input id="demoDescription" type="text" value="">
+      </label>
+
+      <label class="field-label code-label">Python code
+        <textarea id="demoCode" class="code-editor" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off"></textarea>
+      </label>
+
+      <div class="editor-footer-row">
+        <span id="dirtyFlag" class="subtle">No code loaded.</span>
+        <span id="codeStats" class="subtle"></span>
+      </div>
+    </section>
+
+  </main>
+
+  <script src="{{ url_for('static', filename='code.js') }}"></script>
+</body>
+</html>

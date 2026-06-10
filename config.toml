@@ -1,0 +1,96 @@
+[panel]
+rows = 64
+cols = 64
+chain_length = 1
+parallel = 1
+gpio_mapping = "adafruit-hat-pwm"
+brightness = 70
+slowdown_gpio = 2
+pwm_bits = 11
+pwm_lsb_nanoseconds = 130
+hardware_pulse = true
+show_refresh_rate = false
+limit_refresh_rate_hz = 90
+rgb_sequence = "RGB"
+pixel_mapper = ""
+panel_type = ""
+row_address_type = 0
+multiplexing = 0
+scan_mode = 0
+drop_privileges = false
+
+[server]
+host = "0.0.0.0"
+port = 80
+
+[paths]
+data_dir = "data"
+database = "data/matrix_art.sqlite"
+
+[image]
+target_width = 64
+target_height = 64
+scale_mode = "fit"
+resample = "nearest"
+background_color = "#000000"
+
+[slideshow]
+enabled = false
+shuffle = true
+interval_seconds = 10
+show_first_on_start = true
+
+[runtime]
+auto_sudo = true
+mock_display = false
+process_nice = -10
+matrix_realtime_priority = 55
+display_thread_realtime_priority = 45
+restore_main_scheduler_after_matrix_init = true
+# Temporarily pins matrix construction to this core so the native refresh thread
+# inherits the isolated core. The main/web thread is then moved back to app_cpu_cores.
+enable_matrix_core_affinity = true
+matrix_cpu_core = 3
+app_cpu_cores = "0-2"
+
+[animation]
+max_gif_frames = 240
+default_frame_duration_ms = 100
+min_frame_duration_ms = 20
+max_frame_duration_ms = 5000
+
+[transitions]
+enabled = true
+effect = "fade"
+duration_ms = 600
+fps = 30
+smoothing = true
+smoothing_strength = 35
+
+[demos]
+default_fps = 24
+# Set high enough for LED-matrix experiments. Use the Settings page to tune live.
+max_fps = 1000
+frame_queue_size = 3
+
+
+[ui]
+title = "Matrix-Art"
+library_subtitle = "Folders, trash, uploads, browser drawing, GIF playback, transitions, and Python code effects."
+upload_subtitle = "Upload an image or animated GIF, crop/scale it, preview the 64×64 result, then save it to the library."
+draw_subtitle = "Draw directly on a 64×64 RGB matrix-style canvas, then save the exact result to the library."
+code_subtitle = "Edit, save, and run Python-generated visual effects from the browser."
+settings_subtitle = "Customize the app text, code timing, animation defaults, diagnostics, and Wi-Fi."
+
+[startup]
+show_ip_on_start = true
+ip_display_seconds = 60
+ip_wait_seconds = 35
+hotspot_fallback = true
+default_hotspot_ssid = "Matrix-Art"
+default_hotspot_password = "matrixart1234"
+
+[security]
+# Emergency recovery switch. Set to true and restart the service to clear the Settings PIN.
+# Matrix-Art flips this back to false after the reset, when config.toml is writable.
+reset_settings_pin = false

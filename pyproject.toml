@@ -1,0 +1,20 @@
+[project]
+name = "matrix-art"
+version = "1.0.0"
+description = "Raspberry Pi RGB matrix art server for a 64x64 HUB75 panel"
+license = "GPL-2.0-or-later"
+requires-python = ">=3.11"
+dependencies = [
+  "Flask>=3.0",
+  "Pillow>=10.0",
+]
+
+[tool.setuptools]
+packages = [
+  "matrix_art",
+  "matrix_art.artwork",
+  "matrix_art.display",
+  "matrix_art.web",
+  "matrix_art.slideshow",
+  "matrix_art.demos",
+]

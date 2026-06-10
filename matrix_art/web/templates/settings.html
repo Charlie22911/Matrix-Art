@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ ui.title }} Settings</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <h1>{{ ui.title }}</h1>
+      <p class="subtle">{{ ui.settings_subtitle }}</p>
+    </div>
+    <nav class="top-nav">
+      <a class="btn link-btn" href="/">Library</a>
+      <a class="btn link-btn" href="/upload">Upload</a>
+      <a class="btn link-btn" href="/draw">Draw</a>
+      {% if code_editor_enabled %}<a class="btn link-btn" href="/code">Code</a>{% endif %}
+      <a class="btn link-btn" href="/settings">Settings</a>
+    </nav>
+  </header>
+
+  <main class="settings-grid">
+    <section class="card panel">
+      <h2>Settings PIN</h2>
+      <p class="subtle">Protect the Settings page and Settings-only actions behind a numeric PIN. If no PIN is set, Settings remain unlocked.</p>
+      <div class="diag-grid security-grid">
+        <div><strong id="securityPinState">{{ 'ON' if security.pin_enabled else 'OFF' }}</strong><span>PIN lock</span></div>
+        <div><strong id="securityUnlockState">{{ 'YES' if security.unlocked else 'NO' }}</strong><span>Unlocked now</span></div>
+      </div>
+      <div class="two-col">
+        <label class="field-label">Current PIN
+          <input id="settingsCurrentPin" type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="current-password" placeholder="Required to change or disable">
+        </label>
+        <label class="field-label">New PIN
+          <input id="settingsNewPin" type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="new-password" placeholder="4 to 12 digits">
+        </label>
+      </div>
+      <label class="field-label">Confirm new PIN
+        <input id="settingsConfirmPin" type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="new-password" placeholder="Repeat new PIN">
+      </label>
+      <div class="button-row">
+        <button class="btn" id="saveSettingsPinBtn" type="button">{{ 'Change PIN' if security.pin_enabled else 'Set PIN' }}</button>
+        <button class="btn warning" id="lockSettingsNowBtn" type="button" {% if not security.pin_enabled %}disabled{% endif %}>Lock Now</button>
+        <button class="btn danger" id="disableSettingsPinBtn" type="button" {% if not security.pin_enabled %}disabled{% endif %}>Disable PIN</button>
+      </div>
+      <p class="subtle">If the PIN is forgotten, set reset_settings_pin = true under [security] in config.toml, then restart the service. Matrix-Art clears the PIN and flips the flag back to false when possible.</p>
+    </section>
+
+    <section class="card panel">
+      <h2>Page text</h2>
+      <p class="subtle">Change the title and the short helper text shown at the top of each page.</p>
+      <label class="field-label">Site title
+        <input id="uiTitle" type="text" value="{{ ui.title }}">
+      </label>
+      <label class="field-label">Library subtitle
+        <input id="uiLibrarySubtitle" type="text" value="{{ ui.library_subtitle }}">
+      </label>
+      <label class="field-label">Upload subtitle
+        <input id="uiUploadSubtitle" type="text" value="{{ ui.upload_subtitle }}">
+      </label>
+      <label class="field-label">Draw subtitle
+        <input id="uiDrawSubtitle" type="text" value="{{ ui.draw_subtitle }}">
+      </label>
+      <label class="field-label">Code subtitle
+        <input id="uiCodeSubtitle" type="text" value="{{ ui.code_subtitle }}">
+      </label>
+      <label class="field-label">Settings subtitle
+        <input id="uiSettingsSubtitle" type="text" value="{{ ui.settings_subtitle }}">
+      </label>
+      <button class="btn" id="saveUiTextBtn" type="button">Save page text</button>
+      <pre id="settingsStatus" class="status">Settings ready.</pre>
+    </section>
+
+    <section class="card panel">
+      <div class="section-head-row">
+        <h2>Folders</h2>
+        <button class="btn small" id="refreshFoldersBtn" type="button">Refresh</button>
+      </div>
+      <p class="subtle">Protected folders cannot be deleted. Trash and Unfiled are always protected. Deleting a normal folder moves its contents to Unfiled.</p>
+      <div id="folderSettingsList" class="folder-settings-list">Folder settings load automatically.</div>
+    </section>
+
+    <section class="card panel">
+      <h2>Code timing</h2>
+      <p class="subtle">The old 30 FPS feeling came from saved demo defaults and earlier caps. These controls affect newly run editor code immediately.</p>
+      <label class="enabled-check setting-toggle"><input id="codeEditorEnabled" type="checkbox" {% if code_editor_enabled %}checked{% endif %}> Enable Code editor page</label>
+      <div class="two-col">
+        <label class="field-label">Default code FPS
+          <input id="codeDefaultFps" type="number" min="1" max="1000" step="1" value="{{ code_default_fps }}">
+        </label>
+        <label class="field-label">Max code FPS
+          <input id="codeMaxFps" type="number" min="0" max="1000" step="1" value="{{ code_max_fps }}">
+        </label>
+      </div>
+      <p class="subtle">Max FPS of 0 means uncapped, with a safety ceiling of 1000 FPS. Real output depends on Python effect cost and the matrix driver.</p>
+      <button class="btn" id="saveCodeSettingsBtn" type="button">Save code timing</button>
+    </section>
+
+    <section class="card panel">
+      <h2>Animation defaults</h2>
+      <p class="subtle">Defaults used by the GIF upload page. The upload page can still override them per upload.</p>
+      <div class="two-col">
+        <label class="field-label">Max GIF frames
+          <input id="animMaxFrames" type="number" min="1" max="1000" step="1" value="{{ animation.max_gif_frames }}">
+        </label>
+        <label class="field-label">Default frame ms
+          <input id="animDefaultMs" type="number" min="1" max="60000" step="1" value="{{ animation.default_frame_duration_ms }}">
+        </label>
+      </div>
+      <div class="two-col">
+        <label class="field-label">Min frame ms
+          <input id="animMinMs" type="number" min="1" max="60000" step="1" value="{{ animation.min_frame_duration_ms }}">
+        </label>
+        <label class="field-label">Max frame ms
+          <input id="animMaxMs" type="number" min="1" max="60000" step="1" value="{{ animation.max_frame_duration_ms }}">
+        </label>
+      </div>
+      <button class="btn" id="saveAnimationSettingsBtn" type="button">Save animation defaults</button>
+    </section>
+
+    <section class="card panel diag-panel">
+      <div class="section-head-row">
+        <h2>Diagnostics</h2>
+        <button class="btn small" id="refreshDiagBtn" type="button">Refresh</button>
+      </div>
+      <div class="diag-grid">
+        <div><strong id="diagCpuUsage">--</strong><span>CPU usage</span></div>
+        <div><strong id="diagTemp">--</strong><span>CPU temp</span></div>
+        <div><strong id="diagClock">--</strong><span>CPU clock</span></div>
+        <div><strong id="diagRam">--</strong><span>RAM used</span></div>
+      </div>
+      <pre id="diagDetails" class="status">Diagnostics load automatically.</pre>
+    </section>
+
+    <section class="card panel diag-panel">
+      <div class="section-head-row">
+        <h2>Matrix timing</h2>
+        <button class="btn small" id="refreshMatrixTimingBtn" type="button">Refresh</button>
+      </div>
+      <p class="subtle">Verifies the Adafruit hardware PWM path and shows whether the matrix refresh thread was created on the reserved CPU core.</p>
+      <div class="diag-grid">
+        <div><strong id="matrixPwmStatus">--</strong><span>Hardware PWM</span></div>
+        <div><strong id="matrixAffinityStatus">--</strong><span>Core affinity</span></div>
+        <div><strong id="matrixIsolationStatus">--</strong><span>Boot isolation</span></div>
+        <div><strong id="matrixAudioStatus">--</strong><span>Audio module</span></div>
+      </div>
+      <pre id="matrixTimingDetails" class="status">Matrix timing status loads automatically.</pre>
+    </section>
+
+    <section class="card panel wifi-panel">
+      <div class="section-head-row">
+        <h2>Wi-Fi</h2>
+        <button class="btn small" id="wifiRefreshBtn" type="button">Refresh status</button>
+      </div>
+      <p class="subtle">Uses NetworkManager through nmcli. Scanning or connecting can briefly disrupt Wi-Fi if you are managing the same adapter used for access.</p>
+      <label class="field-label">Interface
+        <select id="wifiInterface"></select>
+      </label>
+
+      <div class="wifi-saved-box">
+        <div class="section-head-row compact-head">
+          <h3>Saved networks</h3>
+          <button class="btn small" id="wifiSavedRefreshBtn" type="button">Refresh saved</button>
+        </div>
+        <div id="wifiSavedNetworks" class="wifi-networks wifi-saved-networks">Saved networks load automatically.</div>
+      </div>
+
+      <div class="button-row">
+        <button class="btn" id="wifiScanBtn" type="button">Scan networks</button>
+        <button class="btn" id="wifiDisconnectBtn" type="button">Disconnect selected interface</button>
+      </div>
+      <div id="wifiNetworks" class="wifi-networks"></div>
+
+      <div class="wifi-connect-box">
+        <h3>Wi-Fi client</h3>
+        <label class="field-label">SSID
+          <input id="wifiSsid" type="text" placeholder="SSID">
+        </label>
+        <label class="field-label">Password
+          <input id="wifiPassword" type="password" placeholder="Leave blank for open network">
+        </label>
+        <div class="button-row wifi-flags-row">
+          <label class="enabled-check"><input id="wifiHidden" type="checkbox"> Hidden network</label>
+          <label class="enabled-check"><input id="wifiAutoconnect" type="checkbox" checked> Autoconnect when saved</label>
+        </div>
+        <div class="button-row">
+          <button class="btn" id="wifiConnectBtn" type="button">Connect</button>
+          <button class="btn" id="wifiSaveBtn" type="button">Save</button>
+          <button class="btn" id="wifiConnectSaveBtn" type="button">Connect + Save</button>
+        </div>
+      </div>
+
+      <div class="wifi-connect-box hotspot-box">
+        <h3>Hotspot</h3>
+        <p class="subtle">Starting a hotspot disconnects existing wireless client connections on the selected adapter. Hotspot mode is saved and will be restored on reboot until Wi-Fi mode is chosen again.</p>
+        <label class="field-label">Hotspot SSID
+          <input id="hotspotSsid" type="text" value="{{ hotspot.ssid }}" placeholder="Matrix-Art">
+        </label>
+        <label class="field-label">Hotspot password
+          <input id="hotspotPassword" type="password" value="{{ hotspot.password }}" placeholder="8 to 63 characters">
+        </label>
+        <button class="btn warning" id="hotspotStartBtn" type="button">Start Hotspot</button>
+      </div>
+      <pre id="wifiStatus" class="status">Wi-Fi status loads automatically.</pre>
+    </section>
+  </main>
+
+  <script src="{{ url_for('static', filename='settings.js') }}"></script>
+</body>
+</html>

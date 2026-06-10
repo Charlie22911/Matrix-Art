@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ ui.title }} Draw</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <h1>{{ ui.title }}</h1>
+      <p class="subtle">{{ ui.draw_subtitle }}</p>
+    </div>
+    <nav class="top-nav">
+      <a class="btn link-btn" href="/">Library</a>
+      <a class="btn link-btn" href="/upload">Upload</a>
+      <a class="btn link-btn" href="/draw">Draw</a>
+      {% if code_editor_enabled %}<a class="btn link-btn" href="/code">Code</a>{% endif %}
+      <a class="btn link-btn" href="/settings">Settings</a>
+    </nav>
+  </header>
+
+  <section class="card draw-card">
+    <div class="draw-layout">
+      <div class="draw-tools">
+        <label class="field-label">Title
+          <input id="drawTitle" type="text" value="Drawing" placeholder="Drawing title">
+        </label>
+        <label class="field-label">Folder
+          <input id="drawFolder" type="text" value="Drawings" list="folderList" placeholder="Drawings">
+          <datalist id="folderList">
+            {% for item in folders if not item.trash %}<option value="{{ item.path }}"></option>{% endfor %}
+          </datalist>
+        </label>
+        <div class="two-col">
+          <label class="field-label">Color
+            <input id="drawColor" type="color" value="#ff6600">
+          </label>
+          <label class="field-label">Brush size
+            <select id="brushSize">
+              <option value="1" selected>1 px</option>
+              <option value="2">2 px</option>
+              <option value="3">3 px</option>
+              <option value="4">4 px</option>
+            </select>
+          </label>
+        </div>
+        <div class="field-label color-hotbar-field">Recent colors
+          <div id="colorHotbar" class="color-hotbar" aria-label="Recent colors"></div>
+        </div>
+        <div class="button-row tool-row" role="group" aria-label="Drawing tools">
+          <button class="btn active" id="pencilTool" type="button" data-tool="pencil">Pencil</button>
+          <button class="btn" id="eraserTool" type="button" data-tool="eraser">Eraser</button>
+          <button class="btn" id="fillTool" type="button" data-tool="fill">Fill</button>
+        </div>
+        <div class="button-row">
+          <button class="btn" id="undoBtn" type="button">Undo</button>
+          <button class="btn" id="clearDrawingBtn" type="button">Clear</button>
+        </div>
+        <label class="enabled-check"><input id="drawEnabled" type="checkbox" checked> Enabled in slideshow/library</label>
+        <label class="enabled-check"><input id="drawShowNow" type="checkbox" checked> Show on panel after save</label>
+        <div class="button-row draw-actions">
+          <button class="btn" id="saveDrawingBtn" type="button">Save drawing to library</button>
+        </div>
+        <pre id="drawStatus" class="status">Draw with mouse, touch, or stylus. Dragging is supported.</pre>
+      </div>
+
+      <div class="draw-canvas-area">
+        <div class="label">64×64 drawing canvas</div>
+        <canvas id="drawCanvas" class="draw-canvas" width="512" height="512"></canvas>
+        <canvas id="drawSmall" width="64" height="64" hidden></canvas>
+        <p class="subtle">The panel updates live while you draw. Saving flashes the matrix briefly and stores the exact 64×64 drawing.</p>
+      </div>
+    </div>
+  </section>
+
+  <script src="{{ url_for('static', filename='draw.js') }}"></script>
+</body>
+</html>

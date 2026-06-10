@@ -1,0 +1,25 @@
+Matrix-Art third-party notices
+
+Matrix-Art uses the Raspberry Pi RGB LED matrix driver originally created by Henner Zeller.
+
+The LED-matrix library is copyright Henner Zeller <h.zeller@acm.org> and is licensed under the GNU General Public License Version 2.0 or later.
+
+Source project:
+https://github.com/hzeller/rpi-rgb-led-matrix
+
+Matrix-Art also references Adafruit's Raspberry Pi RGB Matrix Bonnet documentation and installer workflow for setup of the Adafruit RGB Matrix Bonnet/HAT.
+
+Related project:
+https://github.com/adafruit/Raspberry-Pi-Installer-Scripts
+
+Driver components and Python bindings retain their original license terms.
+
+Project origin and transparency
+
+Matrix-Art was created by its maintainer with assistance from ChatGPT by OpenAI. This notice is included for transparency. OpenAI has not reviewed, tested, certified, or endorsed this project.
+
+Use-at-your-own-risk notice
+
+Matrix-Art is provided as-is under the GNU General Public License version 2. Installing or running it can change Raspberry Pi boot settings, install a systemd service, adjust audio/module loading, configure networking, and drive GPIO-connected LED matrix hardware. Users are responsible for reviewing scripts, wiring hardware correctly, using suitable power equipment, and making backups before installation.
+
+To the fullest extent permitted by applicable law, the author is not responsible for damage, data loss, injury, downtime, or other losses arising from installation, wiring, configuration, operation, modification, or use of this project.

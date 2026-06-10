@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ ui.title }} Code Help</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <h1>{{ ui.title }} Code Help</h1>
+      <p class="subtle">How to write Python effects for the 64×64 RGB matrix.</p>
+    </div>
+    <nav class="top-nav">
+      <a class="btn link-btn" href="/code">Back to Code</a>
+      <a class="btn link-btn" href="/">Library</a>
+      <a class="btn link-btn" href="/settings">Settings</a>
+    </nav>
+  </header>
+
+  <main class="help-page">
+    <section class="card panel">
+      <h2>Minimum effect</h2>
+      <p>Each code effect is a Python script. The only required function is <code>render()</code>. Matrix-Art calls it repeatedly and sends the resulting 64×64 RGB frame to the panel.</p>
+      <pre class="code-preview">def render(ctx, t, dt, frame, params):
+    frame.fill(0, 0, 0)
+    frame.set_pixel(32, 32, 255, 0, 0)</pre>
+    </section>
+
+    <section class="card panel">
+      <h2>Function arguments</h2>
+      <ul class="help-list">
+        <li><code>ctx</code> contains display and timing values.</li>
+        <li><code>t</code> is seconds since the effect started.</li>
+        <li><code>dt</code> is seconds since the last frame.</li>
+        <li><code>frame</code> is the 64×64 drawing buffer.</li>
+        <li><code>params</code> contains default parameter values from <code>PARAMS</code>.</li>
+        <li><code>state</code> is optional persistent storage returned by <code>setup()</code>.</li>
+      </ul>
+      <pre class="code-preview">def setup(ctx):
+    return {"x": 0, "direction": 1}
+
+def render(ctx, t, dt, frame, params, state):
+    state["x"] += state["direction"]
+    if state["x"] <= 0 or state["x"] >= ctx.width - 1:
+        state["direction"] *= -1
+    frame.fill(0, 0, 0)
+    frame.set_pixel(state["x"], 32, 0, 255, 80)</pre>
+    </section>
+
+    <section class="card panel">
+      <h2>Context values</h2>
+      <ul class="help-list">
+        <li><code>ctx.width</code> and <code>ctx.height</code> are normally 64.</li>
+        <li><code>ctx.fps</code> is the target frame rate.</li>
+        <li><code>ctx.frame_index</code> starts at 0 and increments each rendered frame.</li>
+        <li><code>ctx.time</code> and <code>ctx.dt</code> mirror <code>t</code> and <code>dt</code>.</li>
+      </ul>
+    </section>
+
+    <section class="card panel">
+      <h2>Frame drawing helpers</h2>
+      <ul class="help-list">
+        <li><code>frame.fill(r, g, b)</code></li>
+        <li><code>frame.clear()</code></li>
+        <li><code>frame.set_pixel(x, y, r, g, b)</code></li>
+        <li><code>frame.get_pixel(x, y)</code></li>
+        <li><code>frame.fade(amount)</code>, where <code>1.0</code> keeps everything and <code>0.0</code> fades to black</li>
+        <li><code>frame.line(x0, y0, x1, y1, r, g, b)</code></li>
+        <li><code>frame.rect(x, y, w, h, r, g, b, fill=False)</code></li>
+        <li><code>frame.circle(cx, cy, radius, r, g, b, fill=False)</code></li>
+      </ul>
+    </section>
+
+    <section class="card panel">
+      <h2>Parameters</h2>
+      <p>Effects may define <code>PARAMS</code>. At the moment Matrix-Art uses the default values. Slider controls can be added later without changing the effect format.</p>
+      <pre class="code-preview">PARAMS = {
+    "speed": {"type": "float", "default": 1.0, "min": 0.1, "max": 4.0, "step": 0.1},
+    "count": {"type": "int", "default": 12, "min": 1, "max": 50, "step": 1},
+}</pre>
+    </section>
+
+    <section class="card panel">
+      <h2>Tips</h2>
+      <ul class="help-list">
+        <li>Keep nested loops small. The panel is only 4,096 pixels, so full-screen loops are fine.</li>
+        <li>Use <code>dt</code> for movement so the effect speed stays stable if FPS changes.</li>
+        <li>Use <code>setup()</code> for persistent objects such as stars, particles, balls, grids, or random seeds.</li>
+        <li>Keep imports simple. Built-in modules like <code>math</code> and <code>random</code> work well.</li>
+        <li>Run Editor lets you test unsaved changes. Save stores the code and updates its Library thumbnail from frame 10.</li>
+      </ul>
+    </section>
+  </main>
+</body>
+</html>
