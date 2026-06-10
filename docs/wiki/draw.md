@@ -14,7 +14,7 @@ Name used when the drawing is saved to the Library.
 
 Folder path for the saved drawing. Defaults to `Drawings`.
 
-Existing folders are offered through a datalist. You can type a new folder path directly.
+Existing folders are offered through a datalist. New folder paths can be typed directly.
 
 ## Drawing tools
 
@@ -65,7 +65,7 @@ Input support:
 - touch tap and drag
 - stylus tap and drag
 
-The panel updates live while you draw.
+The panel updates live while drawing.
 
 ## Save options
 
