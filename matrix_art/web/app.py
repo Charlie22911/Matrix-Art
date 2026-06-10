@@ -11,7 +11,7 @@ import secrets
 from flask import Flask, jsonify, redirect, render_template, request, send_file, session, url_for
 from PIL import Image
 
-from ..artwork.processor import image_to_png_bytes, process_gif_bytes
+from ..artwork.processor import image_to_png_bytes, process_gif_bytes, process_image, process_scaled_image
 from ..diagnostics import diagnostics_snapshot, matrix_timing_snapshot
 from ..startup import start_ip_countdown_thread
 
@@ -365,7 +365,7 @@ def _safe_hex_color(value: str | None, default: str = "#000000") -> str:
     return default
 
 
-def _gif_upload_options(services: MatrixArtServices) -> dict[str, object]:
+def _image_transform_options(services: MatrixArtServices) -> dict[str, object]:
     scale_mode = (request.form.get("scale_mode") or services.config.image.scale_mode).strip().lower()
     if scale_mode not in {"scale", "crop", "fit", "fill", "stretch"}:
         scale_mode = "scale"
@@ -381,6 +381,69 @@ def _gif_upload_options(services: MatrixArtServices) -> dict[str, object]:
     transform_scale = _float_form("transform_scale", 0.0)
     offset_x = _float_form("offset_x", 0.0)
     offset_y = _float_form("offset_y", 0.0)
+
+    return {
+        "scale_mode": scale_mode,
+        "resample": resample,
+        "background": background,
+        "crop_x": max(0.0, crop_x),
+        "crop_y": max(0.0, crop_y),
+        "crop_size": max(0.0, crop_size),
+        "transform_scale": max(0.0, transform_scale),
+        "offset_x": offset_x,
+        "offset_y": offset_y,
+    }
+
+
+def _process_source_image_upload(services: MatrixArtServices, field_name: str = "source_image") -> tuple[Image.Image | None, bytes | None, str | None, dict[str, object]]:
+    upload = request.files.get(field_name)
+    options = _image_transform_options(services)
+    if upload is None or not upload.filename:
+        return None, None, "no source image received", options
+
+    data = upload.read()
+    if not data:
+        return None, None, "source image was empty", options
+
+    try:
+        with Image.open(BytesIO(data)) as probe:
+            probe.load()
+            target = (services.config.image.target_width, services.config.image.target_height)
+            scale_mode = str(options["scale_mode"])
+            if scale_mode == "scale" and float(options.get("transform_scale", 0.0)) > 0.0:
+                image = process_scaled_image(
+                    probe,
+                    transform_scale=float(options.get("transform_scale", 0.0)),
+                    offset_x=float(options.get("offset_x", 0.0)),
+                    offset_y=float(options.get("offset_y", 0.0)),
+                    target_size=target,
+                    resample=str(options["resample"]),
+                    background_color=str(options["background"]),
+                )
+            else:
+                image = process_image(
+                    probe,
+                    target_size=target,
+                    scale_mode=scale_mode,
+                    resample=str(options["resample"]),
+                    background_color=str(options["background"]),
+                )
+    except Exception as exc:
+        return None, data, f"source image could not be processed: {exc}", options
+
+    return image, data, None, options
+
+
+def _settings_label_for_image_options(prefix: str, options: dict[str, object]) -> str:
+    return (
+        f"{prefix}:{options['scale_mode']}:{options['resample']}:"
+        f"scale={options.get('transform_scale', 0)}:{options.get('offset_x', 0)}:{options.get('offset_y', 0)}:"
+        f"crop={options.get('crop_x', 0)}:{options.get('crop_y', 0)}:{options.get('crop_size', 0)}"
+    )[:240]
+
+
+def _gif_upload_options(services: MatrixArtServices) -> dict[str, object]:
+    base_options = _image_transform_options(services)
     max_frames = _int_form(
         "max_frames",
         services.config.animation.max_gif_frames,
@@ -409,21 +472,13 @@ def _gif_upload_options(services: MatrixArtServices) -> dict[str, object]:
         max_duration_ms = min_duration_ms
     default_duration_ms = max(min_duration_ms, min(max_duration_ms, default_duration_ms))
 
-    return {
-        "scale_mode": scale_mode,
-        "resample": resample,
-        "background": background,
-        "crop_x": max(0.0, crop_x),
-        "crop_y": max(0.0, crop_y),
-        "crop_size": max(0.0, crop_size),
-        "transform_scale": max(0.0, transform_scale),
-        "offset_x": offset_x,
-        "offset_y": offset_y,
+    base_options.update({
         "max_frames": max_frames,
         "default_duration_ms": default_duration_ms,
         "min_duration_ms": min_duration_ms,
         "max_duration_ms": max_duration_ms,
-    }
+    })
+    return base_options
 
 
 def _decode_gif_upload(services: MatrixArtServices) -> tuple[list[tuple[Image.Image, int]] | None, bytes | None, str | None, dict[str, object]]:
@@ -980,10 +1035,18 @@ def create_app(services: MatrixArtServices) -> Flask:
 
     @app.post("/api/upload")
     def api_upload():
-        data, _image, error = _read_64x64_png_upload("image", services, "preview")
-        if error:
-            return jsonify({"ok": False, "error": error}), 400
-        assert data is not None
+        source_options: dict[str, object] | None = None
+        if "source_image" in request.files:
+            image, _source_data, error, source_options = _process_source_image_upload(services, "source_image")
+            if error:
+                return jsonify({"ok": False, "error": error}), 400
+            assert image is not None
+            data = image_to_png_bytes(image)
+        else:
+            data, _image, error = _read_64x64_png_upload("image", services, "preview")
+            if error:
+                return jsonify({"ok": False, "error": error}), 400
+            assert data is not None
 
         title = (request.form.get("title") or "Uploaded image").strip()
         enabled = _bool_form("enabled", True)
@@ -991,13 +1054,24 @@ def create_app(services: MatrixArtServices) -> Flask:
         folder_path = normalize_folder_path(request.form.get("folder_path"), default="Uploads")
 
         try:
-            row = services.db.add_uploaded_frame(
-                panel_png_bytes=data,
-                title=title,
-                image_config=services.config.image,
-                enabled=enabled,
-                folder_path=folder_path,
-            )
+            if source_options is not None:
+                row = services.db.add_panel_frame(
+                    panel_png_bytes=data,
+                    title=title,
+                    image_config=services.config.image,
+                    kind="upload",
+                    enabled=enabled,
+                    folder_path=folder_path,
+                    settings_label=_settings_label_for_image_options("server-image", source_options),
+                )
+            else:
+                row = services.db.add_uploaded_frame(
+                    panel_png_bytes=data,
+                    title=title,
+                    image_config=services.config.image,
+                    enabled=enabled,
+                    folder_path=folder_path,
+                )
         except Exception as exc:
             return jsonify({"ok": False, "error": f"upload failed: {exc}"}), 500
 
@@ -1069,6 +1143,19 @@ def create_app(services: MatrixArtServices) -> Flask:
             "total_ms": total_ms,
             "thumb_url": url_for("thumb", artwork_id=row.id),
         })
+
+    @app.post("/api/image/browser-preview")
+    def api_image_browser_preview():
+        image, _source_data, error, _options = _process_source_image_upload(services, "source_image")
+        if error:
+            return jsonify({"ok": False, "error": error}), 400
+        assert image is not None
+        png = image_to_png_bytes(image)
+        return jsonify({
+            "ok": True,
+            "data_url": "data:image/png;base64," + b64encode(png).decode("ascii"),
+        })
+
 
     @app.post("/api/gif/browser-preview")
     def api_gif_browser_preview():
@@ -1149,10 +1236,16 @@ def create_app(services: MatrixArtServices) -> Flask:
 
     @app.post("/api/display/live-preview")
     def api_live_preview():
-        _data, image, error = _read_64x64_png_upload("image", services, "live preview")
-        if error:
-            return jsonify({"ok": False, "error": error}), 400
-        assert image is not None
+        if "source_image" in request.files:
+            image, _source_data, error, _options = _process_source_image_upload(services, "source_image")
+            if error:
+                return jsonify({"ok": False, "error": error}), 400
+            assert image is not None
+        else:
+            _data, image, error = _read_64x64_png_upload("image", services, "live preview")
+            if error:
+                return jsonify({"ok": False, "error": error}), 400
+            assert image is not None
         title = (request.form.get("title") or "Live drawing preview").strip()
         services.slideshow.set_enabled(False)
         services.demos.stop()
