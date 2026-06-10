@@ -2,12 +2,6 @@
 
 The Draw page is a browser-based 64×64 pixel-art editor. It supports mouse, touch, and stylus input, updates the RGB matrix live while drawing, and saves the exact 64×64 drawing to the Library.
 
-Route:
-
-```text
-/draw
-```
-
 Opening the Draw page pauses slideshow and stops active Code effects so the live drawing preview can own the display.
 
 ## Main fields
