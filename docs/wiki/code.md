@@ -2,13 +2,7 @@
 
 The Code page is a browser-based Python effect editor and runner. It lets you write visual effects that generate live 64×64 RGB frames, similar to demoscene-style effects.
 
-Route:
-
-```text
-/code
-```
-
-The Code page can be disabled from Settings. When disabled, the Code navigation link is hidden and `/code` is blocked.
+Due to the potential for misuse, the Code page can be disabled from Settings. When disabled, the Code navigation link is hidden and `/code` is blocked.
 
 ## Runtime model
 
