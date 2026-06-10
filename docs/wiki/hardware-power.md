@@ -62,4 +62,4 @@ slowdown_gpio = 2
 limit_refresh_rate_hz = 90
 ```
 
-Adjust `slowdown_gpio` or `limit_refresh_rate_hz` if your specific panel behaves differently.
+Adjust `slowdown_gpio` or `limit_refresh_rate_hz` in 'config.toml' if your specific panel behaves differently.
