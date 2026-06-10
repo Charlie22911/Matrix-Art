@@ -28,20 +28,6 @@ git clone https://github.com/Charlie22911/Matrix-Art.git
 cd /home/pi/Matrix-Art
 ```
 
-### Option B: download the ZIP on the Pi
-
-Use this if you want a plain source copy without Git history.
-
-```bash
-sudo apt update
-sudo apt install -y curl unzip
-cd /home/pi
-curl -L -o Matrix-Art.zip https://github.com/Charlie22911/Matrix-Art/archive/refs/heads/main.zip
-unzip Matrix-Art.zip
-mv Matrix-Art-main Matrix-Art
-cd /home/pi/Matrix-Art
-```
-
 Make the installer executable and run it:
 
 ```bash
