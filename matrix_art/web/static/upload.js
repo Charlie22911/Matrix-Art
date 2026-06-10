@@ -46,6 +46,11 @@ let pixelSnapActive = false;
 let dragging = false;
 let dragOffset = {x: 0, y: 0};
 
+let stillPreviewImage = null;
+let stillPreviewTimer = 0;
+let stillPreviewToken = 0;
+let stillPreviewPendingText = '';
+
 let gifPreviewFrames = []; // {image: HTMLImageElement, duration_ms: number}
 let gifAnimationFrame = 0;
 let gifPreviewIndex = 0;
@@ -85,6 +90,14 @@ function activeBackground() {
 function imageSmoothingEnabled() {
   const mode = resampleMode?.value || 'nearest';
   return !(mode === 'nearest' || mode === 'pixel');
+}
+
+function applyCanvasResampling(ctx) {
+  const mode = resampleMode?.value || 'nearest';
+  ctx.imageSmoothingEnabled = !(mode === 'nearest' || mode === 'pixel');
+  if ('imageSmoothingQuality' in ctx) {
+    ctx.imageSmoothingQuality = mode === 'bilinear' ? 'low' : 'high';
+  }
 }
 
 function fitScale() {
@@ -434,7 +447,7 @@ function drawSource() {
   sourceCtx.fillRect(0, 0, sourceCanvas.width, sourceCanvas.height);
   if (!sourceImage) return;
 
-  sourceCtx.imageSmoothingEnabled = imageSmoothingEnabled();
+  applyCanvasResampling(sourceCtx);
   sourceCtx.drawImage(sourceImage, imageRect.x, imageRect.y, imageRect.w, imageRect.h);
 
   if (activeScaleMode() === 'scale') {
@@ -463,7 +476,7 @@ function drawSource() {
 function drawScaledPreview() {
   previewCtx.fillStyle = activeBackground();
   previewCtx.fillRect(0, 0, 64, 64);
-  previewCtx.imageSmoothingEnabled = imageSmoothingEnabled();
+  applyCanvasResampling(previewCtx);
   if (!sourceImage) return;
   clampTransform();
   const w = Math.max(1, Math.round(sourceImage.naturalWidth * transform.scale));
@@ -480,7 +493,7 @@ function drawSourcePreviewFrame() {
 
   if (!sourceImage) return;
 
-  previewCtx.imageSmoothingEnabled = imageSmoothingEnabled();
+  applyCanvasResampling(previewCtx);
   if (activeScaleMode() === 'stretch') {
     previewCtx.drawImage(sourceImage, 0, 0, 64, 64);
   } else {
@@ -525,6 +538,10 @@ function drawPreview() {
     previewCtx.clearRect(0, 0, 64, 64);
     previewCtx.imageSmoothingEnabled = false;
     previewCtx.drawImage(frame.image, 0, 0, 64, 64);
+  } else if (fileKind === 'still' && stillPreviewImage) {
+    previewCtx.clearRect(0, 0, 64, 64);
+    previewCtx.imageSmoothingEnabled = false;
+    previewCtx.drawImage(stillPreviewImage, 0, 0, 64, 64);
   } else {
     drawSourcePreviewFrame();
   }
@@ -608,6 +625,41 @@ function appendGifOptions(form) {
   form.append('max_duration_ms', gifMaxDuration?.value || '5000');
 }
 
+function clearStillPreviewFrame() {
+  stillPreviewImage = null;
+}
+
+function scheduleStillPreviewRender(message = 'Updating still preview...') {
+  if (fileKind !== 'still' || !sourceFile || !sourceImage) return;
+  stillPreviewPendingText = message;
+  clearTimeout(stillPreviewTimer);
+  stillPreviewTimer = setTimeout(() => renderStillBrowserPreview(), 450);
+}
+
+async function renderStillBrowserPreview() {
+  if (fileKind !== 'still' || !sourceFile || !sourceImage) return;
+  const token = ++stillPreviewToken;
+  setStatus(stillPreviewPendingText || 'Updating still preview...');
+  const form = new FormData();
+  form.append('source_image', sourceFile, sourceFile.name || 'source-image');
+  appendTransformOptions(form);
+  try {
+    const res = await fetch('/api/image/browser-preview', {method: 'POST', body: form});
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok || body.ok === false) throw new Error(body.error || res.statusText);
+    const image = await loadFrameImage(body.data_url);
+    if (token !== stillPreviewToken) return;
+    stillPreviewImage = image;
+    setStatus(`Preview ready: ${sourceFile.name} (${sourceImage.naturalWidth}×${sourceImage.naturalHeight}).`);
+    drawPreview();
+  } catch (err) {
+    if (token !== stillPreviewToken) return;
+    clearStillPreviewFrame();
+    setStatus(`Still preview failed: ${err.message}`);
+    drawPreview();
+  }
+}
+
 function scheduleGifPreviewRender(message = 'Updating animated preview...') {
   if (fileKind !== 'gif' || !sourceFile || !sourceImage) return;
   gifRenderPendingText = message;
@@ -660,6 +712,8 @@ fileInput?.addEventListener('change', () => {
   clearTimeout(gifRenderTimer);
   cleanupObjectUrl();
   clearGifPreviewFrames();
+  clearStillPreviewFrame();
+  clearTimeout(stillPreviewTimer);
   sourceFile = null;
   sourceImage = null;
   fileKind = 'none';
@@ -691,6 +745,8 @@ fileInput?.addEventListener('change', () => {
     if (fileKind === 'gif') {
       startGifLoop();
       scheduleGifPreviewRender('Processing animated browser preview...');
+    } else {
+      scheduleStillPreviewRender('Processing browser preview...');
     }
   };
   img.onerror = () => {
@@ -750,10 +806,12 @@ sourceCanvas?.addEventListener('pointerup', endDrag);
 sourceCanvas?.addEventListener('pointercancel', endDrag);
 sourceCanvas?.addEventListener('pointerleave', endDrag);
 
-function transformChanged({clearGif = true} = {}) {
+function transformChanged({clearGif = true, clearStill = true} = {}) {
   if (fileKind === 'gif' && clearGif) clearGifPreviewFrames();
+  if (fileKind === 'still' && clearStill) clearStillPreviewFrame();
   redrawAll();
   if (fileKind === 'gif') scheduleGifPreviewRender('Updating animated preview...');
+  if (fileKind === 'still') scheduleStillPreviewRender('Updating server-rendered preview...');
 }
 
 zoomInput?.addEventListener('input', () => {
@@ -814,11 +872,10 @@ function appendCommonFormFields(form, fallbackTitle) {
 }
 
 async function saveStill() {
-  drawPreview();
-  const blob = await canvasToPngBlob(previewCanvas);
   const form = new FormData();
-  form.append('image', blob, safeUploadName());
+  form.append('source_image', sourceFile, sourceFile?.name || safeUploadName());
   appendCommonFormFields(form, sourceFile ? fileBaseName(sourceFile.name) : 'Uploaded image');
+  appendTransformOptions(form);
   const res = await fetch('/api/upload', {method: 'POST', body: form});
   const body = await res.json().catch(() => ({}));
   if (!res.ok || body.ok === false) throw new Error(body.error || res.statusText);
@@ -840,14 +897,14 @@ saveBtn?.addEventListener('click', async () => {
   if (!sourceImage || !sourceFile || fileKind === 'none') return;
   saveBtn.disabled = true;
   const wasGif = fileKind === 'gif';
-  setStatus(wasGif ? 'Saving processed GIF frames...' : 'Saving the approved 64×64 preview...');
+  setStatus(wasGif ? 'Saving processed GIF frames...' : 'Saving server-rendered 64×64 image...');
 
   try {
     const body = wasGif ? await saveGif() : await saveStill();
     if (wasGif) {
       setStatus(`Saved “${body.title}” with ${body.frame_count} frame(s).`);
     } else {
-      setStatus(`Saved the displayed 64×64 preview as “${body.title}” (artwork ${body.artwork_id}).`);
+      setStatus(`Saved server-rendered 64×64 image as “${body.title}” (artwork ${body.artwork_id}).`);
     }
   } catch (err) {
     setStatus(`Save failed: ${err.message}`);
@@ -857,11 +914,10 @@ saveBtn?.addEventListener('click', async () => {
 });
 
 async function previewStillOnPanel() {
-  drawPreview();
-  const blob = await canvasToPngBlob(previewCanvas);
   const form = new FormData();
-  form.append('image', blob, 'preview-64x64.png');
+  form.append('source_image', sourceFile, sourceFile?.name || 'preview-source');
   form.append('title', titleInput.value.trim() || 'Upload preview');
+  appendTransformOptions(form);
   const res = await fetch('/api/display/live-preview', {method: 'POST', body: form});
   const body = await res.json().catch(() => ({}));
   if (!res.ok || body.ok === false) throw new Error(body.error || res.statusText);
