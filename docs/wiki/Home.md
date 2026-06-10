@@ -20,10 +20,6 @@ This wiki documents the Matrix-Art web interface, appliance behavior, installati
 - [Matrix Timing](matrix-timing.md): CPU isolation, realtime priority, hardware PWM, GPIO slowdown, refresh limit, and timing verification.
 - [Troubleshooting](troubleshooting.md): common issues and checks.
 
-## GitHub Wiki option
-
-These Markdown files can live in the repository under `docs/wiki/`, or they can be copied into GitHub's built-in Wiki as separate pages. See [Publishing to GitHub Wiki](publishing-github-wiki.md).
-
 ## Project notices
 
-Matrix-Art was created by its maintainer with assistance from ChatGPT by OpenAI. OpenAI has not reviewed, tested, certified, or endorsed this project. Matrix-Art is provided as-is and is used at your own risk.
+Matrix-Art was created by its maintainer with assistance from ChatGPT by OpenAI. OpenAI has not reviewed, tested, certified, or endorsed this project. Matrix-Art is provided as-is and is used at the user's own risk.
