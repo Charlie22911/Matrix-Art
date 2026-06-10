@@ -12,19 +12,49 @@ This page documents the Matrix-Art install flow.
 
 ## Fresh install
 
-Copy the repository to the Pi, then run:
+This project assumes that you are starting on a fresh install of Raspberry Pi OS, network access working, and a terminal open on the Pi. SSH is also fine.
+
+Pick one of these ways to put Matrix-Art on the Pi.
+
+### Option A: clone from GitHub on the Pi
+
+This is the recommended path when the Pi has internet access. Replace `pi` with your home folder name if differen from `/home/pi`.
 
 ```bash
+sudo apt update
+sudo apt install -y git
+cd /home/pi
+git clone https://github.com/Charlie22911/Matrix-Art.git
 cd /home/pi/Matrix-Art
-./scripts/install.sh
+```
+
+### Option B: download the ZIP on the Pi
+
+Use this if you want a plain source copy without Git history.
+
+```bash
+sudo apt update
+sudo apt install -y curl unzip
+cd /home/pi
+curl -L -o Matrix-Art.zip https://github.com/Charlie22911/Matrix-Art/archive/refs/heads/main.zip
+unzip Matrix-Art.zip
+mv Matrix-Art-main Matrix-Art
+cd /home/pi/Matrix-Art
+```
+
+Make the installer executable and run it:
+
+```bash
+sudo chmod +x ./scripts/install.sh
+Sudo ./scripts/install.sh
 sudo reboot
 ```
 
 The installer asks for:
 
 - Web UI port, default `80`
-- Whether you are using the Adafruit GPIO4-to-GPIO18 hardware PWM jumper
-- Whether to enable CPU isolation and pinning, default yes
+- Whether you are using the Adafruit GPIO4-to-GPIO18 hardware PWM jumper. Ensure this is correct!
+- Whether to enable CPU isolation and pinning, default yes, and highly recomended.
 - Whether to start Matrix-Art automatically at boot, install the service disabled, or use manual startup only
 
 Dry run:
