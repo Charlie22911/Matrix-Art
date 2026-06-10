@@ -2,26 +2,22 @@
 
 HUB75 RGB matrix panels are timing-sensitive. The Raspberry Pi continuously refreshes the panel through GPIO. If Linux scheduling, interrupts, SD card activity, Wi-Fi activity, or power issues disturb refresh timing, the display can flicker or shimmer.
 
-Matrix-Art uses several measures to keep the panel stable.
+Matrix-Art uses several measures to keep the panel stable, and some configurable values in `config.toml`.
 
 ## Hardware PWM path
 
-The reference hardware uses an Adafruit RGB Matrix Bonnet with the quality hardware-pulse path.
-
-Configuration:
+The reference hardware uses an Adafruit RGB Matrix Bonnet with the quality hardware-pulse path in `config.toml`:
 
 ```toml
 gpio_mapping = "adafruit-hat-pwm"
 hardware_pulse = true
 ```
 
-This path requires the GPIO4 to GPIO18 jumper on the Bonnet/HAT setup. It improves refresh stability by using the driver’s hardware pulse path.
+This path requires GPIO4 and GPIO18 to be connected on the Bonnet/HAT setup. See: `https://learn.adafruit.com/adafruit-rgb-matrix-bonnet-for-raspberry-pi/matrix-setup#configure-for-quality-slash-convenience-3201054`.
 
-Because this uses PWM timing hardware, onboard Raspberry Pi audio must be off. When you choose hardware PWM during install, Matrix-Art sets `dtparam=audio=off` in the existing Raspberry Pi `config.txt` and writes `/etc/modprobe.d/matrix-art-no-audio.conf` so `snd_bcm2835` stays unloaded.
+This improves refresh stability by using the driver’s hardware pulse path. But because this uses PWM timing hardware that is shared with the onboard audio, the onboard Raspberry Pi audio must be off. When you choose hardware PWM during install, Matrix-Art sets `dtparam=audio=off` in the existing Raspberry Pi `config.txt` and writes `/etc/modprobe.d/matrix-art-no-audio.conf` so `snd_bcm2835` stays unloaded.
 
 ## GPIO slowdown
-
-Configuration:
 
 ```toml
 slowdown_gpio = 2
@@ -39,8 +35,6 @@ Higher values are slower but more forgiving.
 
 ## Refresh limit
 
-Configuration:
-
 ```toml
 limit_refresh_rate_hz = 90
 ```
@@ -49,7 +43,7 @@ A steady 90 Hz refresh can look better than a higher but jittery refresh rate. R
 
 ## CPU isolation
 
-On a four-core Pi, Matrix-Art reserves CPU 3 for matrix refresh:
+On a four-core Pi, Matrix-Art reserves CPU 3 for the timing sensitive matrix refresh thread:
 
 ```text
 isolcpus=domain,managed_irq,3 nohz_full=3 rcu_nocbs=3 irqaffinity=0,1,2
@@ -108,24 +102,14 @@ Desired results:
 - matrix refresh thread is `SCHED_FIFO`
 - `snd_bcm2835` is not loaded
 
-## Maintenance workload note
+## Computational workload note
 
-Heavy package installation or upgrades can still cause visible flicker because SD I/O, memory bandwidth, network activity, power draw, and unavoidable kernel work are shared resources.
+Heavy package installation or heavy workloads can still cause visible flicker because SD card I/O, memory bandwidth, network activity, power draw, and unavoidable kernel work are shared resources.
 
-When doing package maintenance, prefer:
-
-```bash
-sudo nice -n 10 ionice -c3 taskset -c 0-2 apt install <package>
-```
-
-Also check power status:
+Throttling due to undervoltage or exceeding thermal limits can also cause issues due to the inconsistent timing caused by changing CPU clocks speeds. You can check throttle status with the following command:
 
 ```bash
 vcgencmd get_throttled
 ```
 
-Ideal result:
-
-```text
-throttled=0x0
-```
+`throttled=0x0` is the result expected for a system that is not throttling
