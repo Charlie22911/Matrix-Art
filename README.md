@@ -2,15 +2,6 @@
 
 Matrix-Art is a Raspberry Pi RGB matrix art server for a 64×64 HUB75 LED panel. It provides a browser interface for uploading images and GIFs, drawing pixel art, organizing a library, running Python code effects, managing Wi-Fi or hotspot mode, and tuning matrix timing.
 
-## Project origin and use notice
-
-Matrix-Art was created by its maintainer with assistance from ChatGPT by OpenAI. This notice is included for transparency. OpenAI has not reviewed, tested, certified, or endorsed this project.
-
-Matrix-Art is provided as-is under the GNU General Public License version 2. Installing or running it can change Raspberry Pi boot settings, install a systemd service, adjust audio/module loading, configure networking, and drive GPIO-connected LED matrix hardware. Review the scripts before running them, back up important data, use proper wiring and power equipment, and use the project at your own risk.
-
-To the fullest extent permitted by applicable law, the author is not responsible for damage, data loss, injury, downtime, or other losses arising from installation, wiring, configuration, operation, modification, or use of this project.
-
-
 Target hardware for the reference build:
 
 - Raspberry Pi Zero 2W
@@ -45,8 +36,6 @@ Target hardware for the reference build:
 
 A page-by-page user manual is included under [`docs/wiki/`](docs/wiki/README.md). It covers each web UI page, including Library, Upload, Draw, Code, Code Help, Settings, Settings PIN, Wi-Fi/Hotspot, installation, hardware, matrix timing, and troubleshooting.
 
-If you want to use GitHub's dedicated Wiki tab, see [`docs/wiki/publishing-github-wiki.md`](docs/wiki/publishing-github-wiki.md).
-
 ## Quick install on a fresh Pi
 
 Copy the repository to the Pi, then run:
@@ -67,7 +56,7 @@ The installer asks for four practical choices:
    - Choose no for the convenience wiring path without the GPIO4-to-GPIO18 jumper.
 3. **CPU isolation and pinning**
    - Default: yes
-   - Recommended for a dedicated RGB matrix appliance because it reserves CPU 3 for the panel refresh thread.
+   - Recommended for a dedicated RGB matrix appliance because it reserves CPU 3 for the timing sensitive panel refresh thread.
 4. **Startup mode**
    - Default: install and enable `matrix-art.service` at boot.
    - This is the best default for a headless panel appliance.
@@ -364,3 +353,11 @@ The LED-matrix library is copyright Henner Zeller `<h.zeller@acm.org>` and is li
 Matrix-Art also references Adafruit's Raspberry Pi RGB Matrix Bonnet documentation and installer workflow for setup of the Adafruit RGB Matrix Bonnet/HAT.
 
 See `NOTICE`, `LICENSE`, and `licenses/GPL-2.0.txt` for license details.
+
+## Project origin and use notice
+
+Matrix-Art was created by its maintainer with assistance from ChatGPT by OpenAI. This notice is included for transparency. OpenAI has not reviewed, tested, certified, or endorsed this project.
+
+Matrix-Art is provided as-is under the GNU General Public License version 2. Installing or running it can change Raspberry Pi boot settings, install a systemd service, adjust audio/module loading, configure networking, and drive GPIO-connected LED matrix hardware. Review the scripts before running them, back up important data, use proper wiring and power equipment, and use the project at your own risk.
+
+To the fullest extent permitted by applicable law, the author is not responsible for damage, data loss, injury, downtime, or other losses arising from installation, wiring, configuration, operation, modification, or use of this project.
