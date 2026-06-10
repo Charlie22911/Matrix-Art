@@ -15,10 +15,10 @@ NAME = "Direct Buffer Plasma Test"
 DEFAULT_FPS = 60
 
 PARAMS = {
-    "speed": {"type": "float", "default": 1.0, "min": 0.1, "max": 4.0, "step": 0.1},
-    "scale": {"type": "float", "default": 0.135, "min": 0.04, "max": 0.40, "step": 0.005},
-    "warp": {"type": "float", "default": 2, "min": 0.0, "max": 2.0, "step": 0.05},
-    "contrast": {"type": "float", "default": 1.25, "min": 0.0, "max": 1.0, "step": 0.05},
+    "speed": {"type": "float", "default": 4.0, "min": 0.1, "max": 4.0, "step": 0.1},
+    "scale": {"type": "float", "default": 0.15, "min": 0.04, "max": 0.40, "step": 0.005},
+    "warp": {"type": "float", "default": 0, "min": 0.0, "max": 2.0, "step": 0.05},
+    "contrast": {"type": "float", "default": 1.35, "min": 0.0, "max": 1.0, "step": 0.05},
     "brightness": {"type": "float", "default": 1, "min": 0.2, "max": 1.5, "step": 0.05},
 
     # 0 = RGB plasma
