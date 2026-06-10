@@ -13,7 +13,8 @@ gpio_mapping = "adafruit-hat-pwm"
 hardware_pulse = true
 ```
 
-This path requires GPIO4 and GPIO18 to be connected on the Bonnet/HAT setup. See: `https://learn.adafruit.com/adafruit-rgb-matrix-bonnet-for-raspberry-pi/matrix-setup#configure-for-quality-slash-convenience-3201054`.
+This path requires GPIO4 and GPIO18 to be connected on the Bonnet/HAT setup. See:
+`https://learn.adafruit.com/adafruit-rgb-matrix-bonnet-for-raspberry-pi/matrix-setup#configure-for-quality-slash-convenience-3201054`.
 
 This improves refresh stability by using the driver’s hardware pulse path. But because this uses PWM timing hardware that is shared with the onboard audio, the onboard Raspberry Pi audio must be off. When you choose hardware PWM during install, Matrix-Art sets `dtparam=audio=off` in the existing Raspberry Pi `config.txt` and writes `/etc/modprobe.d/matrix-art-no-audio.conf` so `snd_bcm2835` stays unloaded.
 
